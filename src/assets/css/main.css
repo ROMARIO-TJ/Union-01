@@ -1,0 +1,42 @@
+/* main.css */
+/*Estilos Globales*/
+:root {
+  --font-base: 'DM Sans', sans-serif;
+  --font-title: 'Poppins', sans-serif;
+}
+
+body {
+  font-family: var(--font-base);
+}
+
+h1, h2, h3 {
+  font-family: var(--font-title);
+}
+
+button {
+  font-family: var(--font-title);
+}
+
+/* Remove default outline on focus for all interactive elements */
+button:focus,
+button:active,
+a:focus,
+a:active,
+input:focus,
+textarea:focus,
+select:focus,
+[role="button"]:focus,
+[role="button"]:active {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Optional: Add a subtle custom focus style for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(var(--primary-rgb, 0, 123, 255), 0.5);
+  outline-offset: 2px;
+}
