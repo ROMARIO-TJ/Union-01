@@ -2,15 +2,16 @@
   RewriteEngine On
   RewriteBase /
   
-  # Si el archivo existe físicamente, sírvelo
-  RewriteCond %{REQUEST_FILENAME} -f
+  # Evitar que las peticiones a la API o subidas sean capturadas por Vue
+  RewriteRule ^(api|uploads) - [L]
+
+  # Si el archivo o carpeta existe físicamente, sírvelo directamente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
   # Si no existe, redirige todo al index.html (para que Vue maneje la ruta)
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !index\.html
   RewriteRule . /index.html [L]
 </IfModule>
 
