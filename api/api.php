@@ -1,4 +1,5 @@
 <?php
+header('Content-Type: application/json');
 // Forzar error reporting a JSON
 error_reporting(0);
 ini_set('display_errors', 0);
@@ -146,13 +147,23 @@ function handleSettings($pdo, $method, $input) {
         $stmt = $pdo->prepare("SELECT value FROM settings WHERE `key` = ?");
         $stmt->execute([$key]);
         $row = $stmt->fetch();
-        echo $row ? $row['value'] : json_encode(null);
+        if ($row) {
+            // Importante: El valor ya es un JSON string en la BD
+            echo $row['value'];
+        } else {
+            echo json_encode(null);
+        }
     } 
     elseif ($method === 'POST') {
+        if (!isset($input['key']) || !isset($input['value'])) {
+            response('error', 'Datos de configuración incompletos');
+        }
         $key = $input['key'];
-        $value = is_string($input['value']) ? $input['value'] : json_encode($input['value']);
+        // Si el valor es un array/objeto, lo convertimos a JSON string para la BD
+        $value = is_array($input['value']) ? json_encode($input['value']) : $input['value'];
+        
         $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?");
         $stmt->execute([$key, $value, $value]);
-        success();
+        success("Configuración guardada");
     }
 }

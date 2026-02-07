@@ -61,24 +61,40 @@ export const useGalleryStore = defineStore('gallery', () => {
     const addPhoto = async (photo) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('gallery', 'POST', photo);
-            if (result.status === 'success') {
-                await initGallery();
-                return true;
-            }
+            // Limpiar objeto para la BD
+            const photoData = {
+                title: photo.title || '',
+                category: photo.category || '',
+                type: photo.type || 'photo',
+                url: photo.url || photo.image || '', // Mapear image a url
+                videoUrl: photo.videoUrl || '',
+                icon: photo.icon || 'fa-solid fa-image'
+            };
+
+            await apiService.request('gallery', 'POST', photoData);
+            await initGallery();
+            return true;
         } catch (err) {
             console.error('Error adding photo:', err);
+            return false;
         } finally {
             isLoading.value = false;
         }
-        return false;
     };
 
     const updatePhoto = async (id, updatedPhoto) => {
         isLoading.value = true;
         try {
-            // Usamos POST con id en URL o añadimos PUT al backend
-            const result = await apiService.request('gallery', 'PUT', { ...updatedPhoto, id });
+            const photoData = {
+                id,
+                title: updatedPhoto.title,
+                category: updatedPhoto.category,
+                type: updatedPhoto.type,
+                url: updatedPhoto.url || updatedPhoto.image || '',
+                videoUrl: updatedPhoto.videoUrl || '',
+                icon: updatedPhoto.icon
+            };
+            const result = await apiService.request('gallery', 'PUT', photoData);
             if (result.status === 'success') {
                 await initGallery();
                 return true;

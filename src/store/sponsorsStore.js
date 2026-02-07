@@ -57,23 +57,32 @@ export const useSponsorsStore = defineStore('sponsors', () => {
     const addSponsor = async (sponsor) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('sponsors', 'POST', sponsor);
-            if (result.status === 'success') {
-                await initSponsors();
-                return true;
-            }
+            const sponsorData = {
+                name: sponsor.name,
+                logo: sponsor.image || sponsor.logo || '', // Sincronizar campo imagen
+                icon: sponsor.icon || 'fa-solid fa-handshake'
+            };
+            await apiService.request('sponsors', 'POST', sponsorData);
+            await initSponsors();
+            return true;
         } catch (err) {
             console.error('Error adding sponsor:', err);
+            return false;
         } finally {
             isLoading.value = false;
         }
-        return false;
     };
 
     const updateSponsor = async (id, updatedSponsor) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('sponsors', 'PUT', { ...updatedSponsor, id });
+            const sponsorData = {
+                id,
+                name: updatedSponsor.name,
+                logo: updatedSponsor.image || updatedSponsor.logo || '',
+                icon: updatedSponsor.icon
+            };
+            const result = await apiService.request('sponsors', 'PUT', sponsorData);
             if (result.status === 'success') {
                 await initSponsors();
                 return true;

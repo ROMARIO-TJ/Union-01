@@ -330,6 +330,29 @@ const deleteBenefit = async (id) => {
             </div>
         </div>
 
+        <!-- Benefits Mobile View -->
+        <div class="admin-cards-grid">
+            <div v-for="benefit in categoryStore.benefits" :key="benefit.id" class="admin-card-item">
+                <div class="admin-card-item__header">
+                    <div class="category-icon-preview">
+                        <i :class="benefit.icon"></i>
+                    </div>
+                    <strong>{{ benefit.title }}</strong>
+                </div>
+                <div class="admin-card-item__body">
+                    <p>{{ benefit.description }}</p>
+                </div>
+                <div class="admin-card-item__actions">
+                    <button @click="openBenefitEditModal(benefit)" class="btn-action edit">
+                        <i class="fa-solid fa-pen"></i> Editar
+                    </button>
+                    <button @click="deleteBenefit(benefit.id)" class="btn-action delete">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Benefit Modal -->
         <div v-if="isBenefitModalOpen" class="admin-modal-overlay">
             <div class="admin-modal">

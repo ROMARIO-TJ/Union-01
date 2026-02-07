@@ -91,7 +91,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useClubStore } from '../store/clubStore';
 import SponsorsCarousel from '../components/SponsorsCarousel.vue';
 import PageHero from '../components/PageHero.vue';
@@ -99,33 +99,8 @@ import clubHeroImg from '../assets/img/heroes/club_hero.png';
 
 const clubStore = useClubStore();
 
-const timeline = ref([
-    {
-        year: '1985',
-        title: 'Fundación del Club',
-        description: 'Nace Unión Jeguera con el sueño de unir a la comunidad a través del fútbol.'
-    },
-    {
-        year: '1992',
-        title: 'Primer Campeonato Local',
-        description: 'Conquistamos nuestro primer título en la liga regional, marcando el inicio de una era dorada.'
-    },
-    {
-        year: '2005',
-        title: 'Inauguración del Estadio',
-        description: 'Abrimos las puertas de nuestro estadio municipal, casa de grandes victorias.'
-    },
-    {
-        year: '2018',
-        title: 'Categorías Formativas',
-        description: 'Expandimos nuestro proyecto con equipos Sub-20 y Femenino, apostando por el futuro.'
-    },
-    {
-        year: '2024',
-        title: 'Renovación Integral',
-        description: 'Modernizamos instalaciones y estructura directiva para seguir creciendo.'
-    }
-]);
+// Usamos el timeline del store
+const timeline = computed(() => clubStore.timeline);
 
 // Timeline animation
 const timelineSection = ref(null);

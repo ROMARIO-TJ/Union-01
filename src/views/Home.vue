@@ -63,7 +63,8 @@ onUnmounted(() => {
     <HomeHero />
 
     <!-- MATCH CENTER SECTION -->
-    <section v-if="globalSettings.modules.matches.enabled" class="match-center">
+    <section v-if="globalSettings.modules.matches.enabled && homeSettings.sections.matchCenter.enabled"
+      class="match-center">
       <div class="container">
         <div class="match-center__header">
           <h2 class="section-title">Próximos <span class="text-accent">Encuentros</span></h2>
@@ -112,7 +113,7 @@ onUnmounted(() => {
     </section>
 
     <!-- LATEST NEWS SECTION -->
-    <section v-if="globalSettings.modules.news.enabled" class="latest-news">
+    <section v-if="globalSettings.modules.news.enabled && homeSettings.sections.latestNews.enabled" class="latest-news">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Actualidad del <span class="text-accent">Club</span></h2>
@@ -137,7 +138,8 @@ onUnmounted(() => {
     </section>
 
     <!-- CATEGORIES PREVIEW SECTION -->
-    <section v-if="globalSettings.modules.categories.enabled" class="categories-preview">
+    <section v-if="globalSettings.modules.categories.enabled && homeSettings.sections.categories.enabled"
+      class="categories-preview">
       <div class="container">
         <div class="section-header">
           <h2 class="section-title">Nuestras <span class="text-accent">Categorías</span></h2>
@@ -178,7 +180,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <SponsorsCarousel />
+    <SponsorsCarousel v-if="homeSettings.sections.sponsors.enabled" />
   </div>
 </template>
 
