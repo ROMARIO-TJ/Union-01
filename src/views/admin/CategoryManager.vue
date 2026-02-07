@@ -73,18 +73,18 @@ const triggerFileInput = () => {
     fileInput.value.click();
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
     if (isEditing.value) {
-        categoryStore.updateCategory(currentId.value, formData.value);
+        await categoryStore.updateCategory(currentId.value, formData.value);
     } else {
-        categoryStore.addCategory(formData.value);
+        await categoryStore.addCategory(formData.value);
     }
     closeModal();
 };
 
-const deleteItem = (id) => {
+const deleteItem = async (id) => {
     if (confirm('¿Estás seguro de que deseas eliminar esta categoría?')) {
-        categoryStore.deleteCategory(id);
+        await categoryStore.deleteCategory(id);
     }
 };
 
@@ -106,18 +106,18 @@ const openBenefitEditModal = (benefit) => {
     isBenefitModalOpen.value = true;
 };
 
-const handleBenefitSubmit = () => {
+const handleBenefitSubmit = async () => {
     if (isEditingBenefit.value) {
-        categoryStore.updateBenefit(currentBenefitId.value, benefitFormData.value);
+        await categoryStore.updateBenefit(currentBenefitId.value, benefitFormData.value);
     } else {
-        categoryStore.addBenefit(benefitFormData.value);
+        await categoryStore.addBenefit(benefitFormData.value);
     }
     isBenefitModalOpen.value = false;
 };
 
-const deleteBenefit = (id) => {
+const deleteBenefit = async (id) => {
     if (confirm('¿Estás seguro de eliminar este beneficio?')) {
-        categoryStore.deleteBenefit(id);
+        await categoryStore.deleteBenefit(id);
     }
 };
 </script>

@@ -3,7 +3,7 @@
         <HeroEditor pageKey="club" />
         <div class="manager-header">
             <h1 class="manager-title">Gestión del Club</h1>
-            <p class="manager-subtitle">Administra la Comisión Directiva y las Instalaciones del club</p>
+            <p class="manager-subtitle">Administra la Comisión Directiva, las Instalaciones y la Historia del club</p>
         </div>
 
         <!-- TABS -->
@@ -13,6 +13,9 @@
             </button>
             <button class="tab-btn" :class="{ active: activeTab === 'facilities' }" @click="activeTab = 'facilities'">
                 <i class="fa-solid fa-building-circle-check"></i> Instalaciones
+            </button>
+            <button class="tab-btn" :class="{ active: activeTab === 'history' }" @click="activeTab = 'history'">
+                <i class="fa-solid fa-clock-rotate-left"></i> Nuestra Historia
             </button>
         </div>
 
@@ -29,7 +32,7 @@
                     <div class="items-grid">
                         <div v-for="member in clubStore.boardMembers" :key="member.id" class="item-card">
                             <div class="item-icon member-photo">
-                                <img v-if="member.image" :src="member.image" :alt="member.name">
+                                <img v-if="member.image" :src="member.image" alt="Member">
                                 <i v-else class="fa-solid fa-user"></i>
                             </div>
                             <div class="item-info">
@@ -50,7 +53,7 @@
                 </div>
 
                 <!-- FACILITIES MANAGEMENT -->
-                <div v-else key="facilities" class="tab-pane">
+                <div v-else-if="activeTab === 'facilities'" key="facilities" class="tab-pane">
                     <div class="action-bar">
                         <button class="btn btn-primary" @click="openModal('facility')">
                             <i class="fa-solid fa-plus"></i> Agregar Instalación
@@ -60,7 +63,7 @@
                     <div class="items-grid">
                         <div v-for="facility in clubStore.facilities" :key="facility.id" class="item-card">
                             <div class="item-icon facility-preview">
-                                <img v-if="facility.image" :src="facility.image" :alt="facility.name">
+                                <img v-if="facility.image" :src="facility.image" alt="Facility">
                                 <i v-else :class="facility.icon"></i>
                             </div>
                             <div class="item-info">
@@ -79,6 +82,36 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- HISTORY MANAGEMENT -->
+                <div v-else key="history" class="tab-pane">
+                    <div class="action-bar">
+                        <button class="btn btn-primary" @click="openModal('history')">
+                            <i class="fa-solid fa-plus"></i> Agregar Hito Histórico
+                        </button>
+                    </div>
+
+                    <div class="items-grid">
+                        <div v-for="item in clubStore.timeline" :key="item.id || item.year" class="item-card">
+                            <div class="item-icon history-year">
+                                <span>{{ item.year }}</span>
+                            </div>
+                            <div class="item-info">
+                                <h3 class="item-name">{{ item.title }}</h3>
+                                <p class="item-detail">{{ item.description }}</p>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-icon edit" @click="editTimelineItem(item)" title="Editar">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button class="btn-icon delete"
+                                    @click="clubStore.deleteTimelineItem(item.id || item.year)" title="Eliminar">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </transition>
         </div>
 
@@ -88,7 +121,7 @@
                 <div class="modal-content">
                     <h2 class="modal-title">
                         {{ isEditing ? 'Editar' : 'Agregar' }}
-                        {{ modalType === 'member' ? 'Miembro' : 'Instalación' }}
+                        {{ modalType === 'member' ? 'Miembro' : modalType === 'history' ? 'Hito' : 'Instalación' }}
                     </h2>
 
                     <form @submit.prevent="saveItem" class="modal-form">
@@ -121,6 +154,24 @@
                             </div>
                         </template>
 
+                        <!-- HISTORY FORM -->
+                        <template v-else-if="modalType === 'history'">
+                            <div class="form-group">
+                                <label>Año</label>
+                                <input v-model="formData.year" type="text" placeholder="Ej: 1985" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Título del Hito</label>
+                                <input v-model="formData.title" type="text" placeholder="Ej: Fundación del Club"
+                                    required>
+                            </div>
+                            <div class="form-group">
+                                <label>Descripción</label>
+                                <textarea v-model="formData.description"
+                                    placeholder="Describa este momento histórico..." required></textarea>
+                            </div>
+                        </template>
+
                         <!-- FACILITY FORM -->
                         <template v-else>
                             <div class="form-group">
@@ -145,7 +196,6 @@
                             <div class="form-group" v-if="!formData.image">
                                 <label>Icono (Clase de FontAwesome)</label>
                                 <input v-model="formData.icon" type="text" placeholder="Ej: fa-solid fa-futbol">
-                                <p class="form-hint">Use clases como 'fa-solid fa-futbol', 'fa-solid fa-house', etc.</p>
                             </div>
                             <div class="form-group">
                                 <label>Nombre de la Instalación</label>
@@ -153,8 +203,8 @@
                             </div>
                             <div class="form-group">
                                 <label>Descripción Corta</label>
-                                <textarea v-model="formData.description"
-                                    placeholder="Describa brevemente la instalación..." required></textarea>
+                                <textarea v-model="formData.description" placeholder="Describa brevemente..."
+                                    required></textarea>
                             </div>
                         </template>
 
@@ -177,7 +227,7 @@ import HeroEditor from '../../components/admin/HeroEditor.vue';
 const clubStore = useClubStore();
 const activeTab = ref('board');
 const showModal = ref(false);
-const modalType = ref('member'); // 'member' or 'facility'
+const modalType = ref('member');
 const isEditing = ref(false);
 const editingId = ref(null);
 const fileInput = ref(null);
@@ -187,7 +237,9 @@ const formData = reactive({
     position: '',
     description: '',
     icon: 'fa-solid fa-check',
-    image: null
+    image: null,
+    year: '',
+    title: ''
 });
 
 const openModal = (type) => {
@@ -208,6 +260,8 @@ const resetForm = () => {
     formData.description = '';
     formData.icon = modalType.value === 'member' ? 'fa-solid fa-user' : 'fa-solid fa-building';
     formData.image = null;
+    formData.year = '';
+    formData.title = '';
 };
 
 const editMember = (member) => {
@@ -221,7 +275,6 @@ const editMember = (member) => {
 };
 
 const editFacility = (facility) => {
-    modalType.value = 'query';
     modalType.value = 'facility';
     isEditing.value = true;
     editingId.value = facility.id;
@@ -229,6 +282,16 @@ const editFacility = (facility) => {
     formData.description = facility.description;
     formData.icon = facility.icon;
     formData.image = facility.image || null;
+    showModal.value = true;
+};
+
+const editTimelineItem = (item) => {
+    modalType.value = 'history';
+    isEditing.value = true;
+    editingId.value = item.id || item.year;
+    formData.year = item.year;
+    formData.title = item.title;
+    formData.description = item.description;
     showModal.value = true;
 };
 
@@ -243,30 +306,19 @@ const handleFileUpload = (event) => {
     }
 };
 
-const saveItem = () => {
+const saveItem = async () => {
     if (modalType.value === 'member') {
-        const memberData = {
-            name: formData.name,
-            position: formData.position,
-            image: formData.image
-        };
-        if (isEditing.value) {
-            clubStore.updateBoardMember(editingId.value, memberData);
-        } else {
-            clubStore.addBoardMember(memberData);
-        }
-    } else {
-        const facilityData = {
-            name: formData.name,
-            description: formData.description,
-            icon: formData.icon || 'fa-solid fa-check',
-            image: formData.image
-        };
-        if (isEditing.value) {
-            clubStore.updateFacility(editingId.value, facilityData);
-        } else {
-            clubStore.addFacility(facilityData);
-        }
+        const memberData = { name: formData.name, position: formData.position, image: formData.image };
+        if (isEditing.value) await clubStore.updateBoardMember(editingId.value, memberData);
+        else await clubStore.addBoardMember(memberData);
+    } else if (modalType.value === 'facility') {
+        const facilityData = { name: formData.name, description: formData.description, icon: formData.icon || 'fa-solid fa-check', image: formData.image };
+        if (isEditing.value) await clubStore.updateFacility(editingId.value, facilityData);
+        else await clubStore.addFacility(facilityData);
+    } else if (modalType.value === 'history') {
+        const timelineData = { year: formData.year, title: formData.title, description: formData.description };
+        if (isEditing.value) await clubStore.updateTimelineItem(editingId.value, timelineData);
+        else await clubStore.addTimelineItem(timelineData);
     }
     closeModal();
 };
@@ -292,7 +344,6 @@ const saveItem = () => {
     color: var(--text-secondary);
 }
 
-/* TABS */
 .manager-tabs {
     display: flex;
     gap: 1rem;
@@ -312,6 +363,7 @@ const saveItem = () => {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    background: transparent;
 }
 
 .tab-btn:hover {
@@ -324,12 +376,10 @@ const saveItem = () => {
     color: white;
 }
 
-/* ACTION BAR */
 .action-bar {
     margin-bottom: 2rem;
 }
 
-/* ITEMS GRID */
 .items-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -363,6 +413,20 @@ const saveItem = () => {
     justify-content: center;
     font-size: 1.5rem;
     flex-shrink: 0;
+    overflow: hidden;
+}
+
+.item-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.item-icon.history-year {
+    background: var(--accent-color);
+    color: white;
+    font-weight: 800;
+    font-size: 0.9rem;
 }
 
 .item-info {
@@ -410,7 +474,6 @@ const saveItem = () => {
     color: white;
 }
 
-/* BUTTONS */
 .btn {
     padding: 0.8rem 1.5rem;
     border-radius: 8px;
@@ -428,22 +491,12 @@ const saveItem = () => {
     color: white;
 }
 
-.btn-primary:hover {
-    filter: brightness(1.2);
-    transform: translateY(-2px);
-}
-
 .btn-outline {
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: var(--text-primary);
 }
 
-.btn-outline:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-/* MODAL */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -463,33 +516,18 @@ const saveItem = () => {
     background: var(--bg-primary);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
-    padding: 1.5rem 2rem;
+    padding: 2rem;
     width: 100%;
     max-width: 450px;
     max-height: 90vh;
     overflow-y: auto;
-    position: relative;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-}
-
-/* Custom scrollbar for modal */
-.modal-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.modal-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
 }
 
 .modal-title {
     margin-bottom: 1.5rem;
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
-    background: var(--bg-primary);
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .form-group {
@@ -511,96 +549,6 @@ const saveItem = () => {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-primary);
-    outline: none;
-}
-
-.form-group textarea {
-    min-height: 100px;
-    resize: vertical;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-    border-color: var(--accent-color);
-}
-
-.form-hint {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-top: 0.4rem;
-}
-
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    background: var(--bg-primary);
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* TRANSITIONS */
-.fade-enter-active,
-.fade-leave-active {
-    transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-    opacity: 0;
-}
-
-@media (max-width: 768px) {
-    .manager-tabs {
-        flex-direction: row;
-        overflow-x: auto;
-        padding-bottom: 0.5rem;
-        gap: 0.5rem;
-    }
-
-    .tab-btn {
-        padding: 0.6rem 1rem;
-        font-size: 0.9rem;
-        white-space: nowrap;
-    }
-
-    .items-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .modal-overlay {
-        padding: 0.5rem;
-    }
-
-    .modal-content {
-        padding: 1.2rem;
-        border-radius: 15px;
-    }
-}
-
-@media (max-width: 480px) {
-    .manager-title {
-        font-size: 1.6rem;
-    }
-
-    .item-card {
-        padding: 1rem;
-        gap: 1rem;
-    }
-}
-
-/* IMAGE UPLOAD STYLES */
-.item-icon.member-photo,
-.item-icon.facility-preview {
-    overflow: hidden;
-    padding: 0;
-}
-
-.item-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
 }
 
 .image-upload-wrapper {
@@ -619,27 +567,14 @@ const saveItem = () => {
     justify-content: center;
     gap: 0.8rem;
     cursor: pointer;
-    transition: all 0.3s ease;
-    color: var(--text-secondary);
-}
-
-.upload-placeholder:hover {
-    background: rgba(31, 167, 116, 0.05);
-    border-color: var(--accent-color);
-    color: var(--accent-color);
-}
-
-.upload-placeholder i {
-    font-size: 2rem;
 }
 
 .image-preview {
     position: relative;
     width: 100%;
-    height: 160px;
+    height: 150px;
     border-radius: 12px;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .image-preview img {
@@ -650,23 +585,21 @@ const saveItem = () => {
 
 .remove-img {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 30px;
-    height: 30px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.5);
     border: none;
+    color: white;
+    width: 25px;
+    height: 25px;
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
 }
 
-.remove-img:hover {
-    background: #e74c3c;
-    transform: scale(1.1);
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
 }
 </style>
