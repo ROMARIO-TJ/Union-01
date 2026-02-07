@@ -4,7 +4,7 @@
 
 define('DB_HOST', 'localhost');
 define('DB_USER', 'u671193113_union_user'); // Usuario real de Hostinger
-define('DB_PASS', 'Anasophia302304');   // Cambiar por el password de DB
+define('DB_PASS', 'Anasophia302304-');   // Password proporcionado por el usuario
 define('DB_NAME', 'u671193113_union_db');  // Base de datos real de Hostinger
 
 // Habilitar CORS para desarrollo (quitar o restringir en producción)
