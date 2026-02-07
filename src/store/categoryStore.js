@@ -86,14 +86,9 @@ export const useCategoryStore = defineStore('categories', () => {
         }
     };
 
-    // Almacenamiento local para persistencia rápida
-    const saveLocally = () => {
-        localStorage.setItem('union_categories_v2', JSON.stringify(categories.value));
-        localStorage.setItem('union_benefits_v1', JSON.stringify(benefits.value));
-    };
-
     // --- CATEGORIES ---
     const addCategory = async (category) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('categories', 'POST', category);
             if (result.status === 'success') {
@@ -101,16 +96,15 @@ export const useCategoryStore = defineStore('categories', () => {
                 return true;
             }
         } catch (error) {
-            console.error('Error adding category to server:', error);
-            // Fallback local si el servidor falla
-            const newId = categories.value.length > 0 ? Math.max(...categories.value.map(c => c.id)) + 1 : 1;
-            categories.value.push({ ...category, id: newId });
-            saveLocally();
+            console.error('Error adding category:', error);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const updateCategory = async (id, updated) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('categories', 'PUT', { ...updated, id });
             if (result.status === 'success') {
@@ -118,17 +112,15 @@ export const useCategoryStore = defineStore('categories', () => {
                 return true;
             }
         } catch (error) {
-            console.error('Error updating category on server:', error);
-            const index = categories.value.findIndex(c => c.id === id);
-            if (index !== -1) {
-                categories.value[index] = { ...categories.value[index], ...updated };
-                saveLocally();
-            }
+            console.error('Error updating category:', error);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const deleteCategory = async (id) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('categories', 'DELETE', { id });
             if (result.status === 'success') {
@@ -136,15 +128,16 @@ export const useCategoryStore = defineStore('categories', () => {
                 return true;
             }
         } catch (error) {
-            console.error('Error deleting category on server:', error);
-            categories.value = categories.value.filter(c => c.id !== id);
-            saveLocally();
+            console.error('Error deleting category:', error);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     // --- BENEFITS ---
     const addBenefit = async (benefit) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('benefits', 'POST', benefit);
             if (result.status === 'success') {
@@ -152,15 +145,15 @@ export const useCategoryStore = defineStore('categories', () => {
                 return true;
             }
         } catch (error) {
-            console.error('Error adding benefit to server:', error);
-            const newId = benefits.value.length > 0 ? Math.max(...benefits.value.map(b => b.id)) + 1 : 1;
-            benefits.value.push({ ...benefit, id: newId });
-            saveLocally();
+            console.error('Error adding benefit:', error);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const updateBenefit = async (id, updated) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('benefits', 'PUT', { ...updated, id });
             if (result.status === 'success') {
@@ -168,17 +161,15 @@ export const useCategoryStore = defineStore('categories', () => {
                 return true;
             }
         } catch (error) {
-            console.error('Error updating benefit on server:', error);
-            const index = benefits.value.findIndex(b => b.id === id);
-            if (index !== -1) {
-                benefits.value[index] = { ...benefits.value[index], ...updated, id };
-                saveLocally();
-            }
+            console.error('Error updating benefit:', error);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const deleteBenefit = async (id) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('benefits', 'DELETE', { id });
             if (result.status === 'success') {
@@ -186,9 +177,9 @@ export const useCategoryStore = defineStore('categories', () => {
                 return true;
             }
         } catch (error) {
-            console.error('Error deleting benefit on server:', error);
-            benefits.value = benefits.value.filter(b => b.id !== id);
-            saveLocally();
+            console.error('Error deleting benefit:', error);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
@@ -199,6 +190,7 @@ export const useCategoryStore = defineStore('categories', () => {
         categories,
         benefits,
         isLoading,
+        initCategories,
         addCategory,
         updateCategory,
         deleteCategory,

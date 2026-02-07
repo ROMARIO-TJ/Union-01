@@ -41,18 +41,18 @@ const closeModal = () => {
   isModalOpen.value = false;
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (isEditing.value) {
-    matchesStore.updateMatch(currentId.value, formData.value);
+    await matchesStore.updateMatch(currentId.value, formData.value);
   } else {
-    matchesStore.addMatch(formData.value);
+    await matchesStore.addMatch(formData.value);
   }
   closeModal();
 };
 
-const deleteItem = (id) => {
+const deleteItem = async (id) => {
   if (confirm('¿Estás seguro de que deseas eliminar este partido?')) {
-    matchesStore.deleteMatch(id);
+    await matchesStore.deleteMatch(id);
   }
 };
 </script>

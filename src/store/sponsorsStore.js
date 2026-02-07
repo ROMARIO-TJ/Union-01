@@ -34,7 +34,10 @@ export const useSponsorsStore = defineStore('sponsors', () => {
         try {
             const data = await apiService.request('sponsors');
             if (data && Array.isArray(data)) {
-                sponsors.value = data;
+                sponsors.value = data.map(item => ({
+                    ...item,
+                    image: item.logo || item.image || ''
+                }));
                 saveToLocalStorage();
             }
         } catch (err) {
@@ -52,6 +55,7 @@ export const useSponsorsStore = defineStore('sponsors', () => {
 
     // CRUD Operations
     const addSponsor = async (sponsor) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('sponsors', 'POST', sponsor);
             if (result.status === 'success') {
@@ -60,11 +64,14 @@ export const useSponsorsStore = defineStore('sponsors', () => {
             }
         } catch (err) {
             console.error('Error adding sponsor:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const updateSponsor = async (id, updatedSponsor) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('sponsors', 'PUT', { ...updatedSponsor, id });
             if (result.status === 'success') {
@@ -73,11 +80,14 @@ export const useSponsorsStore = defineStore('sponsors', () => {
             }
         } catch (err) {
             console.error('Error updating sponsor:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const deleteSponsor = async (id) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('sponsors', 'DELETE', { id });
             if (result.status === 'success') {
@@ -86,6 +96,8 @@ export const useSponsorsStore = defineStore('sponsors', () => {
             }
         } catch (err) {
             console.error('Error deleting sponsor:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };

@@ -102,9 +102,9 @@ export const useNewsStore = defineStore('news', () => {
             if (data && Array.isArray(data)) {
                 news.value = data.map(item => ({
                     ...item,
-                    date: item.date_str // Normalizar el campo de fecha de la DB
+                    date: item.date_str || item.date || ''
                 }));
-                saveToLocalStorage();
+                localStorage.setItem('union_news', JSON.stringify(news.value));
             }
         } catch (err) {
             console.error('Error al cargar noticias del servidor:', err);
@@ -121,6 +121,7 @@ export const useNewsStore = defineStore('news', () => {
 
     // CRUD Operations
     const addNews = async (newsItem) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('news', 'POST', newsItem);
             if (result.status === 'success') {
@@ -129,11 +130,14 @@ export const useNewsStore = defineStore('news', () => {
             }
         } catch (err) {
             console.error('Error al añadir noticia:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const updateNews = async (id, updatedNews) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('news', 'PUT', { ...updatedNews, id });
             if (result.status === 'success') {
@@ -142,11 +146,14 @@ export const useNewsStore = defineStore('news', () => {
             }
         } catch (err) {
             console.error('Error al actualizar noticia:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const deleteNews = async (id) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('news', 'DELETE', { id });
             if (result.status === 'success') {
@@ -155,6 +162,8 @@ export const useNewsStore = defineStore('news', () => {
             }
         } catch (err) {
             console.error('Error al eliminar noticia:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };

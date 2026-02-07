@@ -76,8 +76,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
 
         try {
             const data = await apiService.request('settings', 'GET', { key: 'global_settings' });
-            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                // El backend devuelve el objeto completo
+            if (data && typeof data === 'object') {
                 Object.keys(modules.value).forEach(key => {
                     if (data[key] !== undefined) {
                         modules.value[key].enabled = data[key].enabled;
@@ -86,7 +85,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
                 saveToLocalStorage();
             }
         } catch (err) {
-            console.error('Error loading global settings from server:', err);
+            // ...
         } finally {
             isLoading.value = false;
         }
@@ -109,13 +108,27 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
         localStorage.setItem('union_global_settings', JSON.stringify(modules.value));
     };
 
-    // Alternar módulo
+    // Alternar módulo - Backend First
     const toggleModule = async (moduleKey) => {
-        if (modules.value[moduleKey] && !modules.value[moduleKey].alwaysActive) {
-            modules.value[moduleKey].enabled = !modules.value[moduleKey].enabled;
-            saveToLocalStorage();
-            await saveSettingsToServer();
+        if (!modules.value[moduleKey] || modules.value[moduleKey].alwaysActive) return false;
+
+        isLoading.value = true;
+
+        // Crear copia del estado con el cambio
+        const newModules = { ...modules.value };
+        newModules[moduleKey] = { ...newModules[moduleKey], enabled: !newModules[moduleKey].enabled };
+
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'global_settings',
+                value: newModules
+            });
+            await initSettings();
             return modules.value[moduleKey].enabled;
+        } catch (err) {
+            console.error('Error toggling module:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
@@ -144,13 +157,25 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
 
     // Restaurar valores por defecto
     const resetToDefaults = async () => {
-        Object.keys(modules.value).forEach(key => {
-            if (!modules.value[key].alwaysActive) {
-                modules.value[key].enabled = true;
+        isLoading.value = true;
+        const newModules = { ...modules.value };
+        Object.keys(newModules).forEach(key => {
+            if (!newModules[key].alwaysActive) {
+                newModules[key].enabled = true;
             }
         });
-        saveToLocalStorage();
-        await saveSettingsToServer();
+
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'global_settings',
+                value: newModules
+            });
+            await initSettings();
+        } catch (err) {
+            console.error('Error resetting settings:', err);
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     // Inicializar al cargar
@@ -160,6 +185,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
         modules,
         isLoading,
         error,
+        initSettings,
         toggleModule,
         isModuleEnabled,
         canAccessRoute,

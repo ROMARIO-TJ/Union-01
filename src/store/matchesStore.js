@@ -64,8 +64,12 @@ export const useMatchesStore = defineStore('matches', () => {
         try {
             const data = await apiService.request('matches');
             if (data && Array.isArray(data)) {
-                matches.value = data;
-                saveToLocalStorage();
+                matches.value = data.map(item => ({
+                    ...item,
+                    date: item.date_str || item.date || '',
+                    time: item.time_str || item.time || ''
+                }));
+                localStorage.setItem('union_matches', JSON.stringify(matches.value));
             }
         } catch (err) {
             console.error('Error loading matches:', err);
@@ -82,6 +86,7 @@ export const useMatchesStore = defineStore('matches', () => {
 
     // CRUD Operations
     const addMatch = async (match) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('matches', 'POST', match);
             if (result.status === 'success') {
@@ -90,11 +95,14 @@ export const useMatchesStore = defineStore('matches', () => {
             }
         } catch (err) {
             console.error('Error adding match:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const updateMatch = async (id, updatedMatch) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('matches', 'PUT', { ...updatedMatch, id });
             if (result.status === 'success') {
@@ -103,11 +111,14 @@ export const useMatchesStore = defineStore('matches', () => {
             }
         } catch (err) {
             console.error('Error updating match:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const deleteMatch = async (id) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('matches', 'DELETE', { id });
             if (result.status === 'success') {
@@ -116,6 +127,8 @@ export const useMatchesStore = defineStore('matches', () => {
             }
         } catch (err) {
             console.error('Error deleting match:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };

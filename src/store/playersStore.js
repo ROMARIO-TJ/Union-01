@@ -35,6 +35,7 @@ export const usePlayersStore = defineStore('players', () => {
 
     // Agregar nuevo registro de jugador
     const addPlayer = async (playerData) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('players', 'POST', playerData);
             if (result.status === 'success') {
@@ -43,12 +44,15 @@ export const usePlayersStore = defineStore('players', () => {
             }
         } catch (err) {
             console.error('Error adding player:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     // Actualizar estado del jugador
     const updatePlayerStatus = async (id, status) => {
+        isLoading.value = true;
         try {
             // El backend usa PATCH para estatus en players
             const result = await apiService.request('players', 'PATCH', { id, status });
@@ -58,12 +62,15 @@ export const usePlayersStore = defineStore('players', () => {
             }
         } catch (err) {
             console.error('Error updating player status:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     // Eliminar registro
     const deletePlayer = async (id) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('players', 'DELETE', { id });
             if (result.status === 'success') {
@@ -72,6 +79,8 @@ export const usePlayersStore = defineStore('players', () => {
             }
         } catch (err) {
             console.error('Error deleting player:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };

@@ -58,18 +58,18 @@ const triggerFileInput = () => {
   fileInput.value.click();
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (isEditing.value) {
-    galleryStore.updatePhoto(currentId.value, formData.value);
+    await galleryStore.updatePhoto(currentId.value, formData.value);
   } else {
-    galleryStore.addPhoto(formData.value);
+    await galleryStore.addPhoto(formData.value);
   }
   closeModal();
 };
 
-const deleteItem = (id) => {
+const deleteItem = async (id) => {
   if (confirm('¿Estás seguro de que deseas eliminar este item de la galería?')) {
-    galleryStore.deletePhoto(id);
+    await galleryStore.deletePhoto(id);
   }
 };
 </script>
@@ -100,7 +100,11 @@ const deleteItem = (id) => {
           <tbody>
             <tr v-for="item in galleryStore.photos" :key="item.id">
               <td>
-                <div
+                <div v-if="item.image"
+                  style="width: 50px; height: 50px; border: 1px solid var(--admin-border); border-radius: 4px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center;">
+                  <img :src="item.image" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                </div>
+                <div v-else
                   style="width: 50px; height: 50px; background: #eee; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
                   <i :class="item.icon" style="color: var(--admin-accent); font-size: 1.2rem;"></i>
                 </div>
@@ -128,7 +132,11 @@ const deleteItem = (id) => {
     <div class="admin-cards-grid">
       <div v-for="item in galleryStore.photos" :key="item.id" class="admin-card-item">
         <div class="admin-card-item__header">
-          <div
+          <div v-if="item.image"
+            style="width: 50px; height: 50px; border: 1px solid var(--admin-border); border-radius: 8px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center;">
+            <img :src="item.image" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+          </div>
+          <div v-else
             style="width: 50px; height: 50px; background: var(--admin-bg); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
             <i :class="item.icon" style="color: var(--admin-accent); font-size: 1.5rem;"></i>
           </div>
@@ -186,14 +194,37 @@ const deleteItem = (id) => {
             </div>
 
             <div class="form-group">
-              <label>Icono FontAwesome (Ej: fa-solid fa-futbol)</label>
-              <input v-model="formData.icon" type="text" class="form-control" required>
+              <label>Icono FontAwesome (Opcional, Ej: fa-solid fa-futbol)</label>
+              <input v-model="formData.icon" type="text" class="form-control">
             </div>
 
             <div v-if="formData.type === 'video'" class="form-group">
               <label>URL de Video (YouTube Embed)</label>
               <input v-model="formData.videoUrl" type="text" class="form-control"
                 placeholder="https://www.youtube.com/embed/..." required>
+            </div>
+
+            <div v-else class="form-group">
+              <label>Imagen de la Galería</label>
+              <div style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div v-if="formData.image"
+                  style="width: 80px; height: 80px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #eee; display: flex; align-items: center; justify-content: center;">
+                  <img :src="formData.image" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                </div>
+                <div v-else
+                  style="width: 80px; height: 80px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 0.8rem; text-align: center; padding: 0.5rem;">
+                  Sin imagen
+                </div>
+                <div style="flex: 1;">
+                  <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/*" style="display: none;">
+                  <button type="button" @click="triggerFileInput" class="btn-admin"
+                    style="width: 100%; margin-bottom: 0.5rem; background: #eee;">
+                    <i class="fa-solid fa-upload"></i> {{ isUploading ? 'Subiendo...' : 'Subir Imagen Local' }}
+                  </button>
+                  <input v-model="formData.image" type="text" class="form-control"
+                    placeholder="URL de la imagen (opcional)">
+                </div>
+              </div>
             </div>
 
             <div class="admin-modal-footer">

@@ -1,53 +1,73 @@
 <?php
 require_once 'config.php';
 
-$action = $_GET['action'] ?? '';
-$method = $_SERVER['REQUEST_METHOD'];
+// Establecer cabeceras para JSON y evitar caché
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-cache, must-revalidate');
+header('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Fecha en el pasado
 
-// Helper para leer JSON del body
-function getJsonInput() {
-    return json_decode(file_get_contents("php://input"), true);
-}
+try {
+    $action = $_GET['action'] ?? '';
+    $method = $_SERVER['REQUEST_METHOD'];
 
-$conn = getConn();
+    // Manejar preflight CORS
+    if ($method === 'OPTIONS') {
+        http_response_code(200);
+        exit;
+    }
 
-switch ($action) {
-    case 'news':
-        handleNews($method, $conn);
-        break;
-    case 'players':
-        handlePlayers($method, $conn);
-        break;
-    case 'matches':
-        handleMatches($method, $conn);
-        break;
-    case 'payments':
-        handlePayments($method, $conn);
-        break;
-    case 'expenses':
-        handleExpenses($method, $conn);
-        break;
-    case 'categories':
-        handleCategories($method, $conn);
-        break;
-    case 'settings':
-        handleSettings($method, $conn);
-        break;
-    case 'contact-messages':
-        handleContactMessages($method, $conn);
-        break;
-    case 'benefits':
-        handleBenefits($method, $conn);
-        break;
-    case 'gallery':
-        handleGallery($method, $conn);
-        break;
-    case 'sponsors':
-        handleSponsors($method, $conn);
-        break;
-    default:
-        echo json_encode(["status" => "error", "message" => "Action not found"]);
-        break;
+    // Helper para leer JSON del body
+    function getJsonInput() {
+        $input = file_get_contents("php://input");
+        return json_decode($input, true);
+    }
+
+    $conn = getConn();
+
+    switch ($action) {
+        case 'news':
+            handleNews($method, $conn);
+            break;
+        case 'players':
+            handlePlayers($method, $conn);
+            break;
+        case 'matches':
+            handleMatches($method, $conn);
+            break;
+        case 'payments':
+            handlePayments($method, $conn);
+            break;
+        case 'expenses':
+            handleExpenses($method, $conn);
+            break;
+        case 'categories':
+            handleCategories($method, $conn);
+            break;
+        case 'settings':
+            handleSettings($method, $conn);
+            break;
+        case 'contact-messages':
+            handleContactMessages($method, $conn);
+            break;
+        case 'benefits':
+            handleBenefits($method, $conn);
+            break;
+        case 'gallery':
+            handleGallery($method, $conn);
+            break;
+        case 'sponsors':
+            handleSponsors($method, $conn);
+            break;
+        default:
+            echo json_encode(["status" => "error", "message" => "Action not found: " . $action]);
+            break;
+    }
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(["status" => "error", "message" => "Server error: " . $e->getMessage()]);
+} catch (Error $e) {
+    http_response_code(500);
+    echo json_encode(["status" => "error", "message" => "Fatal error: " . $e->getMessage()]);
 }
 
 // --- HANDLERS ---
@@ -59,7 +79,7 @@ function handleSettings($method, $conn) {
             $stmt = $conn->prepare("SELECT setting_value FROM site_settings WHERE setting_key = ?");
             $stmt->execute([$key]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo $row ? $row['setting_value'] : '{}';
+            echo $row ? $row['setting_value'] : 'null';
         } else {
              echo json_encode(["status" => "error", "message" => "Key required"]);
         }
@@ -92,13 +112,23 @@ function handleNews($method, $conn) {
         echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
     } elseif ($method === 'PUT') {
         $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE news SET title=?, excerpt=?, date_str=?, image=?, content=? WHERE id=?");
-        $stmt->execute([$data['title'], $data['excerpt'], $data['date'], $data['image'], $data['content'], $_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("UPDATE news SET title=?, excerpt=?, date_str=?, image=?, content=? WHERE id=?");
+            $stmt->execute([$data['title'], $data['excerpt'], $data['date'], $data['image'], $data['content'], $id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM news WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("DELETE FROM news WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     }
 }
 
@@ -116,15 +146,25 @@ function handlePlayers($method, $conn) {
             $data['photo'], $data['dniImage'], $data['documentType'], $data['medicalCertificate']
         ]);
         echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'PATCH') { // Para actualizar el status
+    } elseif ($method === 'PATCH') { 
         $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE players SET status = ? WHERE id = ?");
-        $stmt->execute([$data['status'], $_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("UPDATE players SET status = ? WHERE id = ?");
+            $stmt->execute([$data['status'], $id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM players WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("DELETE FROM players WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     }
 }
 
@@ -186,18 +226,28 @@ function handleMatches($method, $conn) {
         echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
     } elseif ($method === 'PUT') {
         $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE matches SET category=?, homeTeam=?, awayTeam=?, date_str=?, time_str=?, stadium=?, homeScore=?, awayScore=?, status=? WHERE id=?");
-        $stmt->execute([
-            $data['category'], $data['homeTeam'], $data['awayTeam'], 
-            $data['date'], $data['time'], $data['stadium'],
-            $data['homeScore'] ?? null, $data['awayScore'] ?? null, $data['status'] ?? 'scheduled',
-            $_GET['id']
-        ]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("UPDATE matches SET category=?, homeTeam=?, awayTeam=?, date_str=?, time_str=?, stadium=?, homeScore=?, awayScore=?, status=? WHERE id=?");
+            $stmt->execute([
+                $data['category'], $data['homeTeam'], $data['awayTeam'], 
+                $data['date'], $data['time'], $data['stadium'],
+                $data['homeScore'] ?? null, $data['awayScore'] ?? null, $data['status'] ?? 'scheduled',
+                $id
+            ]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM matches WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("DELETE FROM matches WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     }
 }
 
@@ -219,18 +269,28 @@ function handleCategories($method, $conn) {
         echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
     } elseif ($method === 'PUT') {
         $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE categories SET name=?, age=?, icon=?, schedule=?, time=?, coach=?, teamImage=? WHERE id=?");
-        $stmt->execute([
-            $data['name'], $data['age'], $data['icon'], 
-            $data['schedule'] ?? '', $data['time'] ?? '', 
-            $data['coach'] ?? '', $data['teamImage'] ?? '', 
-            $_GET['id']
-        ]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("UPDATE categories SET name=?, age=?, icon=?, schedule=?, time=?, coach=?, teamImage=? WHERE id=?");
+            $stmt->execute([
+                $data['name'], $data['age'], $data['icon'], 
+                $data['schedule'] ?? '', $data['time'] ?? '', 
+                $data['coach'] ?? '', $data['teamImage'] ?? '', 
+                $id
+            ]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM categories WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     }
 }
 
@@ -241,18 +301,30 @@ function handleSponsors($method, $conn) {
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
     } elseif ($method === 'POST') {
         $data = getJsonInput();
+        $logo = $data['logo'] ?? $data['image'] ?? '';
         $stmt = $conn->prepare("INSERT INTO sponsors (name, logo, url) VALUES (?, ?, ?)");
-        $stmt->execute([$data['name'], $data['logo'] ?? '', $data['url'] ?? '']);
+        $stmt->execute([$data['name'], $logo, $data['url'] ?? '']);
         echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
     } elseif ($method === 'PUT') {
         $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE sponsors SET name=?, logo=?, url=? WHERE id=?");
-        $stmt->execute([$data['name'], $data['logo'] ?? '', $data['url'] ?? '', $_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $logo = $data['logo'] ?? $data['image'] ?? '';
+            $stmt = $conn->prepare("UPDATE sponsors SET name=?, logo=?, url=? WHERE id=?");
+            $stmt->execute([$data['name'], $logo, $data['url'] ?? '', $id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM sponsors WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("DELETE FROM sponsors WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     }
 }
 
@@ -260,16 +332,50 @@ function handleGallery($method, $conn) {
     if ($method === 'GET') {
         $stmt = $conn->prepare("SELECT * FROM gallery ORDER BY id DESC");
         $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Normalizar campos para el frontend
+        $normalized = array_map(function($item) {
+            $item['image'] = $item['url'] ?? '';
+            $item['title'] = $item['caption'] ?? '';
+            return $item;
+        }, $data);
+        echo json_encode($normalized);
     } elseif ($method === 'POST') {
         $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO gallery (url, caption, category) VALUES (?, ?, ?)");
-        $stmt->execute([$data['url'], $data['caption'] ?? '', $data['category'] ?? 'Todas']);
+        $url = $data['url'] ?? $data['image'] ?? '';
+        $caption = $data['caption'] ?? $data['title'] ?? '';
+        $type = $data['type'] ?? 'photo';
+        $icon = $data['icon'] ?? 'fa-solid fa-image';
+        $videoUrl = $data['videoUrl'] ?? '';
+        
+        $stmt = $conn->prepare("INSERT INTO gallery (url, caption, category, type, icon, videoUrl) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$url, $caption, $data['category'] ?? 'Todas', $type, $icon, $videoUrl]);
         echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
+    } elseif ($method === 'PUT') {
+        $data = getJsonInput();
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $url = $data['url'] ?? $data['image'] ?? '';
+            $caption = $data['caption'] ?? $data['title'] ?? '';
+            $type = $data['type'] ?? 'photo';
+            $icon = $data['icon'] ?? 'fa-solid fa-image';
+            $videoUrl = $data['videoUrl'] ?? '';
+            
+            $stmt = $conn->prepare("UPDATE gallery SET url = ?, caption = ?, category = ?, type = ?, icon = ?, videoUrl = ? WHERE id = ?");
+            $stmt->execute([$url, $caption, $data['category'] ?? 'Todas', $type, $icon, $videoUrl, $id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM gallery WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("DELETE FROM gallery WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     }
 }
 
@@ -306,14 +412,24 @@ function handleBenefits($method, $conn) {
         echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
     } elseif ($method === 'PUT') {
         $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE benefits SET title=?, description=?, icon=? WHERE id=?");
-        $stmt->execute([$data['title'], $data['description'], $data['icon'], $_GET['id']]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("UPDATE benefits SET title=?, description=?, icon=? WHERE id=?");
+            $stmt->execute([$data['title'], $data['description'], $data['icon'], $id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     } elseif ($method === 'DELETE') {
-        $id = getJsonInput()['id'] ?? $_GET['id'] ?? null;
-        $stmt = $conn->prepare("DELETE FROM benefits WHERE id = ?");
-        $stmt->execute([$id]);
-        echo json_encode(["status" => "success"]);
+        $id = $_GET['id'] ?? $data['id'] ?? null;
+        if ($id) {
+            $stmt = $conn->prepare("DELETE FROM benefits WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(["status" => "success"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "ID required"]);
+        }
     }
 }
+
 ?>

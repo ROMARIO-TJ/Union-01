@@ -50,18 +50,18 @@ const triggerFileInput = () => {
   fileInput.value.click();
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (isEditing.value) {
-    sponsorsStore.updateSponsor(currentId.value, formData.value);
+    await sponsorsStore.updateSponsor(currentId.value, formData.value);
   } else {
-    sponsorsStore.addSponsor(formData.value);
+    await sponsorsStore.addSponsor(formData.value);
   }
   closeModal();
 };
 
-const deleteItem = (id) => {
+const deleteItem = async (id) => {
   if (confirm('¿Estás seguro de que deseas eliminar este patrocinador?')) {
-    sponsorsStore.deleteSponsor(id);
+    await sponsorsStore.deleteSponsor(id);
   }
 };
 </script>

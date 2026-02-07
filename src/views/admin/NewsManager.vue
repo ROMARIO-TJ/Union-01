@@ -53,18 +53,18 @@ const triggerFileInput = () => {
   fileInput.value.click();
 };
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (isEditing.value) {
-    newsStore.updateNews(currentId.value, formData.value);
+    await newsStore.updateNews(currentId.value, formData.value);
   } else {
-    newsStore.addNews(formData.value);
+    await newsStore.addNews(formData.value);
   }
   closeModal();
 };
 
-const deleteItem = (id) => {
+const deleteItem = async (id) => {
   if (confirm('¿Estás seguro de que deseas eliminar esta noticia?')) {
-    newsStore.deleteNews(id);
+    await newsStore.deleteNews(id);
   }
 };
 </script>

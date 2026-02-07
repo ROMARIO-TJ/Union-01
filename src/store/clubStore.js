@@ -42,17 +42,17 @@ export const useClubStore = defineStore('club', () => {
                 apiService.request('settings', 'GET', { key: 'club_timeline' }).catch(() => null)
             ]);
 
-            if (boardData && Object.keys(boardData).length > 0) {
+            if (boardData) {
                 boardMembers.value = typeof boardData === 'string' ? JSON.parse(boardData) : boardData;
                 localStorage.setItem('union_board_v1', JSON.stringify(boardMembers.value));
             }
 
-            if (facilitiesData && Object.keys(facilitiesData).length > 0) {
+            if (facilitiesData) {
                 facilities.value = typeof facilitiesData === 'string' ? JSON.parse(facilitiesData) : facilitiesData;
                 localStorage.setItem('union_facilities_v1', JSON.stringify(facilities.value));
             }
 
-            if (timelineData && Object.keys(timelineData).length > 0) {
+            if (timelineData) {
                 timeline.value = typeof timelineData === 'string' ? JSON.parse(timelineData) : timelineData;
                 localStorage.setItem('union_timeline_v1', JSON.stringify(timeline.value));
             }
@@ -99,62 +99,107 @@ export const useClubStore = defineStore('club', () => {
 
     // --- BOARD OPERATIONS ---
     const addBoardMember = async (member) => {
+        isLoading.value = true;
         const newId = boardMembers.value.length > 0 ? Math.max(...boardMembers.value.map(m => m.id)) + 1 : 1;
-        boardMembers.value.push({ ...member, id: newId });
-        await saveBoard();
+        const newList = [...boardMembers.value, { ...member, id: newId }];
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_board', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     const updateBoardMember = async (id, updated) => {
-        const index = boardMembers.value.findIndex(m => m.id === id);
-        if (index !== -1) {
-            boardMembers.value[index] = { ...boardMembers.value[index], ...updated };
-            await saveBoard();
+        isLoading.value = true;
+        const newList = boardMembers.value.map(m => m.id === id ? { ...updated, id } : m);
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_board', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
         }
     };
 
     const deleteBoardMember = async (id) => {
-        boardMembers.value = boardMembers.value.filter(m => m.id !== id);
-        await saveBoard();
+        isLoading.value = true;
+        const newList = boardMembers.value.filter(m => m.id !== id);
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_board', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     // --- FACILITY OPERATIONS ---
     const addFacility = async (facility) => {
+        isLoading.value = true;
         const newId = facilities.value.length > 0 ? Math.max(...facilities.value.map(f => f.id)) + 1 : 1;
-        facilities.value.push({ ...facility, id: newId });
-        await saveFacilities();
+        const newList = [...facilities.value, { ...facility, id: newId }];
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_facilities', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     const updateFacility = async (id, updated) => {
-        const index = facilities.value.findIndex(f => f.id === id);
-        if (index !== -1) {
-            facilities.value[index] = { ...facilities.value[index], ...updated };
-            await saveFacilities();
+        isLoading.value = true;
+        const newList = facilities.value.map(f => f.id === id ? { ...updated, id } : f);
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_facilities', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
         }
     };
 
     const deleteFacility = async (id) => {
-        facilities.value = facilities.value.filter(f => f.id !== id);
-        await saveFacilities();
+        isLoading.value = true;
+        const newList = facilities.value.filter(f => f.id !== id);
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_facilities', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     // --- TIMELINE OPERATIONS ---
     const addTimelineItem = async (item) => {
+        isLoading.value = true;
         const newId = timeline.value.length > 0 ? Math.max(...timeline.value.map(t => t.id || 0)) + 1 : 1;
-        timeline.value.push({ ...item, id: newId });
-        await saveTimeline();
+        const newList = [...timeline.value, { ...item, id: newId }];
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_timeline', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     const updateTimelineItem = async (id, updated) => {
-        const index = timeline.value.findIndex(t => (t.id || t.year) === id);
-        if (index !== -1) {
-            timeline.value[index] = { ...timeline.value[index], ...updated, id };
-            await saveTimeline();
+        isLoading.value = true;
+        const newList = timeline.value.map(t => (t.id || t.year) === id ? { ...updated, id } : t);
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_timeline', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
         }
     };
 
     const deleteTimelineItem = async (id) => {
-        timeline.value = timeline.value.filter(t => (t.id || t.year) !== id);
-        await saveTimeline();
+        isLoading.value = true;
+        const newList = timeline.value.filter(t => (t.id || t.year) !== id);
+        try {
+            await apiService.request('settings', 'POST', { key: 'club_timeline', value: newList });
+            await initStore();
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     initStore();

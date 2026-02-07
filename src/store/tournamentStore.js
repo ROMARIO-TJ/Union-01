@@ -68,20 +68,36 @@ export const useTournamentStore = defineStore('tournament', () => {
     };
 
     const updateStandings = async (categoryId, teamsData) => {
-        const index = standings.value.findIndex(s => s.id === categoryId);
+        isLoading.value = true;
+
+        // Calcular nuevo estado
+        const newStandings = JSON.parse(JSON.stringify(standings.value));
+        const index = newStandings.findIndex(s => s.id === categoryId);
+
         if (index !== -1) {
-            standings.value[index].teams = teamsData;
+            newStandings[index].teams = teamsData;
             // Auto sort
-            standings.value[index].teams.sort((a, b) => {
+            newStandings[index].teams.sort((a, b) => {
                 if (b.points !== a.points) return b.points - a.points;
                 const diffA = a.gf - a.ga;
                 const diffB = b.gf - b.ga;
                 return diffB - diffA;
             });
-            saveLocally();
-            await saveToServer();
-            return true;
+
+            try {
+                await apiService.request('settings', 'POST', {
+                    key: 'tournament_standings',
+                    value: newStandings
+                });
+                await initStandings();
+                return true;
+            } catch (err) {
+                console.error('Error saving standings:', err);
+            } finally {
+                isLoading.value = false;
+            }
         }
+        isLoading.value = false;
         return false;
     };
 
@@ -92,6 +108,7 @@ export const useTournamentStore = defineStore('tournament', () => {
         categories,
         isLoading,
         error,
+        initStandings,
         getStandingsByCategory,
         updateStandings
     };

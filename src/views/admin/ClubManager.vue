@@ -138,7 +138,7 @@
                                     </div>
                                     <div class="upload-placeholder" v-else @click="$refs.fileInput.click()">
                                         <i class="fa-solid fa-cloud-arrow-up"></i>
-                                        <span>Subir Foto</span>
+                                        <span>{{ isUploading ? 'Subiendo...' : 'Subir Foto' }}</span>
                                     </div>
                                     <input type="file" ref="fileInput" hidden accept="image/*"
                                         @change="handleFileUpload">
@@ -185,7 +185,7 @@
                                     </div>
                                     <div class="upload-placeholder" v-else @click="$refs.fileInput.click()">
                                         <i class="fa-solid fa-cloud-arrow-up"></i>
-                                        <span>Subir Foto</span>
+                                        <span>{{ isUploading ? 'Subiendo...' : 'Subir Foto' }}</span>
                                     </div>
                                     <input type="file" ref="fileInput" hidden accept="image/*"
                                         @change="handleFileUpload">
@@ -222,9 +222,11 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { useClubStore } from '../../store/clubStore';
+import { useFileUpload } from '../../composables/useFileUpload';
 import HeroEditor from '../../components/admin/HeroEditor.vue';
 
 const clubStore = useClubStore();
+const { uploadFile, isUploading } = useFileUpload();
 const activeTab = ref('board');
 const showModal = ref(false);
 const modalType = ref('member');
@@ -295,14 +297,15 @@ const editTimelineItem = (item) => {
     showModal.value = true;
 };
 
-const handleFileUpload = (event) => {
+const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            formData.image = e.target.result;
-        };
-        reader.readAsDataURL(file);
+        try {
+            const url = await uploadFile(file);
+            formData.image = url;
+        } catch (error) {
+            alert('Error al subir la imagen');
+        }
     }
 };
 

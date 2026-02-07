@@ -107,8 +107,8 @@ const handleFile = async (event) => {
     }
 };
 
-const saveChanges = () => {
-    homeSettings.updatePageHero(props.pageKey, heroData.value);
+const saveChanges = async () => {
+    await homeSettings.updatePageHero(props.pageKey, heroData.value);
     hasChanges.value = false;
     saveStatus.value = 'Cambios guardados';
     setTimeout(() => saveStatus.value = '', 3000);

@@ -147,15 +147,11 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
             heroSlides.value = parsed.heroSlides || initialSlides;
             philosophy.value = parsed.philosophy || initialPhilosophy;
             pageHeroes.value = parsed.pageHeroes || initialPageHeroes;
-        } else {
-            heroSlides.value = initialSlides;
-            philosophy.value = initialPhilosophy;
-            pageHeroes.value = initialPageHeroes;
         }
 
         try {
             const data = await apiService.request('settings', 'GET', { key: 'home_settings' });
-            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+            if (data && typeof data === 'object') {
                 if (data.sections) {
                     Object.keys(sections.value).forEach(key => {
                         if (data.sections[key] !== undefined) {
@@ -175,20 +171,12 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         }
     };
 
-    const saveSettingsToServer = async () => {
-        try {
-            await apiService.request('settings', 'POST', {
-                key: 'home_settings',
-                value: {
-                    sections: sections.value,
-                    heroSlides: heroSlides.value,
-                    philosophy: philosophy.value,
-                    pageHeroes: pageHeroes.value
-                }
-            });
-        } catch (err) {
-            console.error('Error saving home settings to server:', err);
-        }
+    const pushSettingsToServer = async (newContent) => {
+        await apiService.request('settings', 'POST', {
+            key: 'home_settings',
+            value: newContent
+        });
+        await initSettings();
     };
 
     const saveToLocalStorage = () => {
@@ -201,65 +189,137 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
     };
 
     const toggleSection = async (sectionKey) => {
-        if (sections.value[sectionKey]) {
-            sections.value[sectionKey].enabled = !sections.value[sectionKey].enabled;
-            saveToLocalStorage();
-            await saveSettingsToServer();
+        if (!sections.value[sectionKey]) return;
+
+        isLoading.value = true;
+        const newSections = { ...sections.value };
+        newSections[sectionKey].enabled = !newSections[sectionKey].enabled;
+
+        try {
+            await pushSettingsToServer({
+                sections: newSections,
+                heroSlides: heroSlides.value,
+                philosophy: philosophy.value,
+                pageHeroes: pageHeroes.value
+            });
+        } catch (err) {
+            console.error('Error toggling section:', err);
+        } finally {
+            isLoading.value = false;
         }
     };
 
     // Hero Slides CRUD
     const addHeroSlide = async (slide) => {
+        isLoading.value = true;
         const newId = heroSlides.value.length > 0 ? Math.max(...heroSlides.value.map(s => s.id)) + 1 : 1;
-        heroSlides.value.push({ ...slide, id: newId });
-        saveToLocalStorage();
-        await saveSettingsToServer();
+        const newSlides = [...heroSlides.value, { ...slide, id: newId }];
+        try {
+            await pushSettingsToServer({
+                sections: sections.value,
+                heroSlides: newSlides,
+                philosophy: philosophy.value,
+                pageHeroes: pageHeroes.value
+            });
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     const updateHeroSlide = async (id, updated) => {
-        const index = heroSlides.value.findIndex(s => s.id === id);
-        if (index !== -1) {
-            heroSlides.value[index] = { ...heroSlides.value[index], ...updated, id };
-            saveToLocalStorage();
-            await saveSettingsToServer();
+        isLoading.value = true;
+        const newSlides = heroSlides.value.map(s => s.id === id ? { ...updated, id } : s);
+        try {
+            await pushSettingsToServer({
+                sections: sections.value,
+                heroSlides: newSlides,
+                philosophy: philosophy.value,
+                pageHeroes: pageHeroes.value
+            });
+        } finally {
+            isLoading.value = false;
         }
     };
 
     const deleteHeroSlide = async (id) => {
-        heroSlides.value = heroSlides.value.filter(s => s.id !== id);
-        saveToLocalStorage();
-        await saveSettingsToServer();
+        isLoading.value = true;
+        const newSlides = heroSlides.value.filter(s => s.id !== id);
+        try {
+            await pushSettingsToServer({
+                sections: sections.value,
+                heroSlides: newSlides,
+                philosophy: philosophy.value,
+                pageHeroes: pageHeroes.value
+            });
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     // Philosophy CRUD
     const addPhilosophyItem = async (item) => {
+        isLoading.value = true;
         const newId = philosophy.value.length > 0 ? Math.max(...philosophy.value.map(p => p.id)) + 1 : 1;
-        philosophy.value.push({ ...item, id: newId });
-        saveToLocalStorage();
-        await saveSettingsToServer();
+        const newPhilosophy = [...philosophy.value, { ...item, id: newId }];
+        try {
+            await pushSettingsToServer({
+                sections: sections.value,
+                heroSlides: heroSlides.value,
+                philosophy: newPhilosophy,
+                pageHeroes: pageHeroes.value
+            });
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     const updatePhilosophyItem = async (id, updated) => {
-        const index = philosophy.value.findIndex(p => p.id === id);
-        if (index !== -1) {
-            philosophy.value[index] = { ...philosophy.value[index], ...updated, id };
-            saveToLocalStorage();
-            await saveSettingsToServer();
+        isLoading.value = true;
+        const newPhilosophy = philosophy.value.map(p => p.id === id ? { ...updated, id } : p);
+        try {
+            await pushSettingsToServer({
+                sections: sections.value,
+                heroSlides: heroSlides.value,
+                philosophy: newPhilosophy,
+                pageHeroes: pageHeroes.value
+            });
+        } finally {
+            isLoading.value = false;
         }
     };
 
     const deletePhilosophyItem = async (id) => {
-        philosophy.value = philosophy.value.filter(p => p.id !== id);
-        saveToLocalStorage();
-        await saveSettingsToServer();
+        isLoading.value = true;
+        const newPhilosophy = philosophy.value.filter(p => p.id !== id);
+        try {
+            await pushSettingsToServer({
+                sections: sections.value,
+                heroSlides: heroSlides.value,
+                philosophy: newPhilosophy,
+                pageHeroes: pageHeroes.value
+            });
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     // Page Heroes Update
     const updatePageHero = async (pageKey, updated) => {
-        if (pageHeroes.value[pageKey]) {
-            pageHeroes.value[pageKey] = { ...pageHeroes.value[pageKey], ...updated };
-            saveToLocalStorage();
-            await saveSettingsToServer();
+        if (!pageHeroes.value[pageKey]) return;
+
+        isLoading.value = true;
+        const newPageHeroes = { ...pageHeroes.value };
+        newPageHeroes[pageKey] = { ...newPageHeroes[pageKey], ...updated };
+
+        try {
+            await pushSettingsToServer({
+                sections: sections.value,
+                heroSlides: heroSlides.value,
+                philosophy: philosophy.value,
+                pageHeroes: newPageHeroes
+            });
+        } finally {
+            isLoading.value = false;
         }
     };
 
@@ -272,6 +332,7 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         pageHeroes,
         isLoading,
         error,
+        initSettings,
         toggleSection,
         addHeroSlide,
         updateHeroSlide,

@@ -37,11 +37,16 @@ export const useContactStore = defineStore('contact', () => {
 
         try {
             const data = await apiService.request('settings', 'GET', { key: 'contact_settings' });
-            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+            // Si el servidor tiene datos, mandan sobre el LocalStorage
+            if (data && typeof data === 'object' && (data.contactInfo || data.footerInfo || data.socialLinks)) {
                 if (data.contactInfo) contactInfo.value = data.contactInfo;
                 if (data.footerInfo) footerInfo.value = data.footerInfo;
                 if (data.socialLinks) socialLinks.value = data.socialLinks;
                 saveAllLocally();
+            } else if (!savedContact && !savedFooter && !savedSocial) {
+                // Si todo está vacío (servidor y local), guardamos los defaults iniciales
+                saveAllLocally();
+                saveSettingsToServer();
             }
         } catch (err) {
             console.error('Error loading contact settings:', err);
@@ -72,38 +77,102 @@ export const useContactStore = defineStore('contact', () => {
     };
 
     const updateContactInfo = async (newInfo) => {
-        contactInfo.value = { ...contactInfo.value, ...newInfo };
-        saveAllLocally();
-        await saveSettingsToServer();
+        isLoading.value = true;
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'contact_settings',
+                value: {
+                    contactInfo: { ...contactInfo.value, ...newInfo },
+                    footerInfo: footerInfo.value,
+                    socialLinks: socialLinks.value
+                }
+            });
+            await initContact();
+        } catch (err) {
+            console.error('Error updating contact info:', err);
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     const updateFooterInfo = async (newInfo) => {
-        footerInfo.value = { ...footerInfo.value, ...newInfo };
-        saveAllLocally();
-        await saveSettingsToServer();
+        isLoading.value = true;
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'contact_settings',
+                value: {
+                    contactInfo: contactInfo.value,
+                    footerInfo: { ...footerInfo.value, ...newInfo },
+                    socialLinks: socialLinks.value
+                }
+            });
+            await initContact();
+        } catch (err) {
+            console.error('Error updating footer info:', err);
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     // Social Links CRUD
     const addSocialLink = async (link) => {
-        const newLink = { ...link, id: Date.now() };
-        socialLinks.value.push(newLink);
-        saveAllLocally();
-        await saveSettingsToServer();
+        isLoading.value = true;
+        const newLinks = [...socialLinks.value, { ...link, id: Date.now() }];
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'contact_settings',
+                value: {
+                    contactInfo: contactInfo.value,
+                    footerInfo: footerInfo.value,
+                    socialLinks: newLinks
+                }
+            });
+            await initContact();
+        } catch (err) {
+            console.error('Error adding social link:', err);
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     const updateSocialLink = async (id, updatedLink) => {
-        const index = socialLinks.value.findIndex(l => l.id === id);
-        if (index !== -1) {
-            socialLinks.value[index] = { ...updatedLink, id };
-            saveAllLocally();
-            await saveSettingsToServer();
+        isLoading.value = true;
+        const newLinks = socialLinks.value.map(l => l.id === id ? { ...updatedLink, id } : l);
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'contact_settings',
+                value: {
+                    contactInfo: contactInfo.value,
+                    footerInfo: footerInfo.value,
+                    socialLinks: newLinks
+                }
+            });
+            await initContact();
+        } catch (err) {
+            console.error('Error updating social link:', err);
+        } finally {
+            isLoading.value = false;
         }
     };
 
     const deleteSocialLink = async (id) => {
-        socialLinks.value = socialLinks.value.filter(l => l.id !== id);
-        saveAllLocally();
-        await saveSettingsToServer();
+        isLoading.value = true;
+        const newLinks = socialLinks.value.filter(l => l.id !== id);
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'contact_settings',
+                value: {
+                    contactInfo: contactInfo.value,
+                    footerInfo: footerInfo.value,
+                    socialLinks: newLinks
+                }
+            });
+            await initContact();
+        } catch (err) {
+            console.error('Error deleting social link:', err);
+        } finally {
+            isLoading.value = false;
+        }
     };
 
     initContact();
@@ -113,6 +182,7 @@ export const useContactStore = defineStore('contact', () => {
         footerInfo,
         socialLinks,
         isLoading,
+        initContact,
         updateContactInfo,
         updateFooterInfo,
         addSocialLink,

@@ -287,14 +287,14 @@ const closeModal = () => {
     selectedPlayer.value = null;
 };
 
-const updateStatus = (status) => {
-    playersStore.updatePlayerStatus(selectedPlayer.value.id, status);
+const updateStatus = async (status) => {
+    await playersStore.updatePlayerStatus(selectedPlayer.value.id, status);
     selectedPlayer.value.status = status;
 };
 
-const deletePlayer = (id) => {
+const deletePlayer = async (id) => {
     if (confirm('¿Estás seguro de que deseas eliminar este registro?')) {
-        playersStore.deletePlayer(id);
+        await playersStore.deletePlayer(id);
     }
 };
 </script>

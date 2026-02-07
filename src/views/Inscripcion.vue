@@ -348,9 +348,13 @@ const finishRegistration = async () => {
 
     isSubmitting.value = true;
     try {
-        playersStore.addPlayer(formData.value);
-        currentStep.value = 4;
-        window.scrollTo({ top: 300, behavior: 'smooth' });
+        const success = await playersStore.addPlayer(formData.value);
+        if (success) {
+            currentStep.value = 4;
+            window.scrollTo({ top: 300, behavior: 'smooth' });
+        } else {
+            alert('Hubo un error al procesar tu inscripción en el servidor.');
+        }
     } catch (error) {
         alert('Hubo un error al procesar tu inscripción');
     } finally {

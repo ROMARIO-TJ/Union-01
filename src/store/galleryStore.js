@@ -30,35 +30,36 @@ export const useGalleryStore = defineStore('gallery', () => {
         isLoading.value = true;
         error.value = null;
 
-        // Respaldo local
+        // 1. Cargar caché local para feedback instantáneo
         const savedPhotos = localStorage.getItem('union_gallery');
         if (savedPhotos) {
             photos.value = JSON.parse(savedPhotos);
-        } else {
+        } else if (photos.value.length === 0) {
             photos.value = initialPhotos;
         }
 
         try {
+            // 2. Traer datos reales del servidor
             const data = await apiService.request('gallery');
             if (data && Array.isArray(data)) {
-                photos.value = data;
-                saveToLocalStorage();
+                photos.value = data.map(item => ({
+                    ...item,
+                    image: item.url || item.image || '',
+                    title: item.caption || item.title || ''
+                }));
+                localStorage.setItem('union_gallery', JSON.stringify(photos.value));
             }
         } catch (err) {
             console.error('Error loading gallery:', err);
-            error.value = 'Error al sincronizar galería.';
+            error.value = 'Error al sincronizar con el servidor.';
         } finally {
             isLoading.value = false;
         }
     };
 
-    // Guardar en localStorage
-    const saveToLocalStorage = () => {
-        localStorage.setItem('union_gallery', JSON.stringify(photos.value));
-    };
-
-    // CRUD Operations
+    // CRUD Operations - Backend First
     const addPhoto = async (photo) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('gallery', 'POST', photo);
             if (result.status === 'success') {
@@ -67,23 +68,31 @@ export const useGalleryStore = defineStore('gallery', () => {
             }
         } catch (err) {
             console.error('Error adding photo:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const updatePhoto = async (id, updatedPhoto) => {
-        // La API actual no tiene un PUT para gallery explícito, pero podríamos añadirlo si fuera necesario.
-        // Por ahora lo manejamos localmente o asumiendo que no se editan fotos a menudo.
-        const index = photos.value.findIndex(p => p.id === id);
-        if (index !== -1) {
-            photos.value[index] = { ...photos.value[index], ...updatedPhoto };
-            saveToLocalStorage();
-            return true;
+        isLoading.value = true;
+        try {
+            // Usamos POST con id en URL o añadimos PUT al backend
+            const result = await apiService.request('gallery', 'PUT', { ...updatedPhoto, id });
+            if (result.status === 'success') {
+                await initGallery();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error updating photo:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
 
     const deletePhoto = async (id) => {
+        isLoading.value = true;
         try {
             const result = await apiService.request('gallery', 'DELETE', { id });
             if (result.status === 'success') {
@@ -92,6 +101,8 @@ export const useGalleryStore = defineStore('gallery', () => {
             }
         } catch (err) {
             console.error('Error deleting photo:', err);
+        } finally {
+            isLoading.value = false;
         }
         return false;
     };
@@ -115,6 +126,7 @@ export const useGalleryStore = defineStore('gallery', () => {
         categories,
         isLoading,
         error,
+        initGallery,
         addPhoto,
         updatePhoto,
         deletePhoto,

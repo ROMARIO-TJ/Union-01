@@ -68,7 +68,10 @@ CREATE TABLE IF NOT EXISTS gallery (
     id INT AUTO_INCREMENT PRIMARY KEY,
     url TEXT NOT NULL,
     caption VARCHAR(255),
-    category VARCHAR(100)
+    category VARCHAR(100),
+    type VARCHAR(20) DEFAULT 'photo',
+    icon VARCHAR(100),
+    videoUrl TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sponsors (
