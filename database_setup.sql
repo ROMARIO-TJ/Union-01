@@ -14,7 +14,29 @@ CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     age VARCHAR(50),
-    icon VARCHAR(100)
+    icon VARCHAR(100),
+    schedule VARCHAR(100),
+    time VARCHAR(50),
+    coach VARCHAR(100),
+    teamImage TEXT
+);
+
+CREATE TABLE IF NOT EXISTS site_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value LONGTEXT
+);
+
+CREATE TABLE IF NOT EXISTS matches (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    homeTeam VARCHAR(100),
+    awayTeam VARCHAR(100),
+    date_str VARCHAR(100),
+    time_str VARCHAR(100),
+    stadium VARCHAR(100),
+    category VARCHAR(100),
+    homeScore INT DEFAULT NULL,
+    awayScore INT DEFAULT NULL,
+    status VARCHAR(50) DEFAULT 'scheduled'
 );
 
 CREATE TABLE IF NOT EXISTS players (
@@ -31,18 +53,29 @@ CREATE TABLE IF NOT EXISTS players (
     dniImage TEXT,
     documentType VARCHAR(100),
     medicalCertificate TEXT,
-    status ENUM('Pendiente', 'Aceptado', 'Rechazado') DEFAULT 'Pendiente',
+    status VARCHAR(50) DEFAULT 'Pendiente',
     registrationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS matches (
+CREATE TABLE IF NOT EXISTS benefits (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    homeTeam VARCHAR(100),
-    awayTeam VARCHAR(100),
-    date_str VARCHAR(100),
-    time_str VARCHAR(100),
-    stadium VARCHAR(100),
+    title VARCHAR(100),
+    description TEXT,
+    icon VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS gallery (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    url TEXT NOT NULL,
+    caption VARCHAR(255),
     category VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS sponsors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    logo TEXT,
+    url TEXT
 );
 
 CREATE TABLE IF NOT EXISTS payments (
@@ -63,16 +96,3 @@ CREATE TABLE IF NOT EXISTS expenses (
     fecha DATE
 );
 
-CREATE TABLE IF NOT EXISTS gallery (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    url TEXT NOT NULL,
-    caption VARCHAR(255),
-    category VARCHAR(100)
-);
-
-CREATE TABLE IF NOT EXISTS sponsors (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100),
-    logo TEXT,
-    url TEXT
-);

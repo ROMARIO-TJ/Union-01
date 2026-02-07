@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { apiService } from '../services/api';
 
 export const useGlobalSettingsStore = defineStore('globalSettings', () => {
     const modules = ref({
@@ -50,24 +51,56 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
         }
     });
 
-    // Inicializar desde localStorage o usar valores por defecto
-    const initSettings = () => {
+    const isLoading = ref(false);
+    const error = ref(null);
+
+    // Inicializar sincronizando con el servidor
+    const initSettings = async () => {
+        isLoading.value = true;
+        error.value = null;
+
+        // Carga rápida del respaldo local
         const savedSettings = localStorage.getItem('union_global_settings');
         if (savedSettings) {
             try {
                 const parsed = JSON.parse(savedSettings);
-                // Merge saved settings with default structure
                 Object.keys(modules.value).forEach(key => {
                     if (parsed[key] !== undefined) {
                         modules.value[key].enabled = parsed[key].enabled;
                     }
                 });
-            } catch (error) {
-                console.error('Error loading global settings:', error);
+            } catch (e) {
+                console.error('Local parse error');
+            }
+        }
+
+        try {
+            const data = await apiService.request('settings', 'GET', { key: 'global_settings' });
+            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+                // El backend devuelve el objeto completo
+                Object.keys(modules.value).forEach(key => {
+                    if (data[key] !== undefined) {
+                        modules.value[key].enabled = data[key].enabled;
+                    }
+                });
                 saveToLocalStorage();
             }
-        } else {
-            saveToLocalStorage();
+        } catch (err) {
+            console.error('Error loading global settings from server:', err);
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
+    // Guardar en servidor y local
+    const saveSettingsToServer = async () => {
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'global_settings',
+                value: modules.value
+            });
+        } catch (err) {
+            console.error('Error saving global settings to server:', err);
         }
     };
 
@@ -77,10 +110,11 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
     };
 
     // Alternar módulo
-    const toggleModule = (moduleKey) => {
+    const toggleModule = async (moduleKey) => {
         if (modules.value[moduleKey] && !modules.value[moduleKey].alwaysActive) {
             modules.value[moduleKey].enabled = !modules.value[moduleKey].enabled;
             saveToLocalStorage();
+            await saveSettingsToServer();
             return modules.value[moduleKey].enabled;
         }
         return false;
@@ -93,36 +127,30 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
 
     // Verificar si se puede acceder a una ruta
     const canAccessRoute = (routePath) => {
-        // Rutas siempre accesibles
         const alwaysAccessible = ['/', '/club', '/contacto', '/admin'];
-
-        // Verificar si la ruta es siempre accesible
         if (alwaysAccessible.some(path => routePath.startsWith(path))) {
             return true;
         }
 
-        // Verificar cada módulo
         for (const [key, module] of Object.entries(modules.value)) {
             if (module.routes && module.routes.length > 0) {
-                // Si la ruta pertenece a este módulo
                 if (module.routes.some(route => routePath.startsWith(route))) {
                     return module.enabled;
                 }
             }
         }
-
-        // Si no pertenece a ningún módulo específico, permitir acceso
         return true;
     };
 
     // Restaurar valores por defecto
-    const resetToDefaults = () => {
+    const resetToDefaults = async () => {
         Object.keys(modules.value).forEach(key => {
             if (!modules.value[key].alwaysActive) {
                 modules.value[key].enabled = true;
             }
         });
         saveToLocalStorage();
+        await saveSettingsToServer();
     };
 
     // Inicializar al cargar
@@ -130,6 +158,8 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
 
     return {
         modules,
+        isLoading,
+        error,
         toggleModule,
         isModuleEnabled,
         canAccessRoute,

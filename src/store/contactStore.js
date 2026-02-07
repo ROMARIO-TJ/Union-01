@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { apiService } from '../services/api';
 
 export const useContactStore = defineStore('contact', () => {
     const contactInfo = ref({
@@ -21,63 +22,88 @@ export const useContactStore = defineStore('contact', () => {
         { id: 3, platform: 'Twitter', url: 'https://twitter.com', icon: 'fa-brands fa-x-twitter' }
     ]);
 
-    const initContact = () => {
+    const isLoading = ref(false);
+
+    const initContact = async () => {
+        isLoading.value = true;
+
         const savedContact = localStorage.getItem('union_contact_info');
         const savedFooter = localStorage.getItem('union_footer_info');
         const savedSocial = localStorage.getItem('union_social_links');
 
-        if (savedContact) {
-            const parsed = JSON.parse(savedContact);
-            contactInfo.value = { ...contactInfo.value, ...parsed };
-        }
-        if (savedFooter) {
-            const parsed = JSON.parse(savedFooter);
-            footerInfo.value = { ...footerInfo.value, ...parsed };
-        }
+        if (savedContact) contactInfo.value = JSON.parse(savedContact);
+        if (savedFooter) footerInfo.value = JSON.parse(savedFooter);
         if (savedSocial) socialLinks.value = JSON.parse(savedSocial);
 
-        if (!savedContact && !savedFooter && !savedSocial) {
-            saveAll();
+        try {
+            const data = await apiService.request('settings', 'GET', { key: 'contact_settings' });
+            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+                if (data.contactInfo) contactInfo.value = data.contactInfo;
+                if (data.footerInfo) footerInfo.value = data.footerInfo;
+                if (data.socialLinks) socialLinks.value = data.socialLinks;
+                saveAllLocally();
+            }
+        } catch (err) {
+            console.error('Error loading contact settings:', err);
+        } finally {
+            isLoading.value = false;
         }
     };
 
-    const saveAll = () => {
+    const saveSettingsToServer = async () => {
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'contact_settings',
+                value: {
+                    contactInfo: contactInfo.value,
+                    footerInfo: footerInfo.value,
+                    socialLinks: socialLinks.value
+                }
+            });
+        } catch (err) {
+            console.error('Error saving contact settings to server:', err);
+        }
+    };
+
+    const saveAllLocally = () => {
         localStorage.setItem('union_contact_info', JSON.stringify(contactInfo.value));
         localStorage.setItem('union_footer_info', JSON.stringify(footerInfo.value));
         localStorage.setItem('union_social_links', JSON.stringify(socialLinks.value));
     };
 
-    const updateContactInfo = (newInfo) => {
+    const updateContactInfo = async (newInfo) => {
         contactInfo.value = { ...contactInfo.value, ...newInfo };
-        localStorage.setItem('union_contact_info', JSON.stringify(contactInfo.value));
+        saveAllLocally();
+        await saveSettingsToServer();
     };
 
-    const updateFooterInfo = (newInfo) => {
+    const updateFooterInfo = async (newInfo) => {
         footerInfo.value = { ...footerInfo.value, ...newInfo };
-        localStorage.setItem('union_footer_info', JSON.stringify(footerInfo.value));
+        saveAllLocally();
+        await saveSettingsToServer();
     };
 
     // Social Links CRUD
-    const addSocialLink = (link) => {
-        const newLink = {
-            ...link,
-            id: Date.now()
-        };
+    const addSocialLink = async (link) => {
+        const newLink = { ...link, id: Date.now() };
         socialLinks.value.push(newLink);
-        localStorage.setItem('union_social_links', JSON.stringify(socialLinks.value));
+        saveAllLocally();
+        await saveSettingsToServer();
     };
 
-    const updateSocialLink = (id, updatedLink) => {
+    const updateSocialLink = async (id, updatedLink) => {
         const index = socialLinks.value.findIndex(l => l.id === id);
         if (index !== -1) {
             socialLinks.value[index] = { ...updatedLink, id };
-            localStorage.setItem('union_social_links', JSON.stringify(socialLinks.value));
+            saveAllLocally();
+            await saveSettingsToServer();
         }
     };
 
-    const deleteSocialLink = (id) => {
+    const deleteSocialLink = async (id) => {
         socialLinks.value = socialLinks.value.filter(l => l.id !== id);
-        localStorage.setItem('union_social_links', JSON.stringify(socialLinks.value));
+        saveAllLocally();
+        await saveSettingsToServer();
     };
 
     initContact();
@@ -86,6 +112,7 @@ export const useContactStore = defineStore('contact', () => {
         contactInfo,
         footerInfo,
         socialLinks,
+        isLoading,
         updateContactInfo,
         updateFooterInfo,
         addSocialLink,

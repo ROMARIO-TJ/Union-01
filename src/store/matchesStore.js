@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { apiService } from '../services/api';
 
 export const useMatchesStore = defineStore('matches', () => {
     const matches = ref([]);
@@ -44,14 +45,33 @@ export const useMatchesStore = defineStore('matches', () => {
         }
     ];
 
-    // Inicializar desde localStorage o usar datos iniciales
-    const initMatches = () => {
+    const isLoading = ref(false);
+    const error = ref(null);
+
+    // Inicializar sincronizando con el servidor
+    const initMatches = async () => {
+        isLoading.value = true;
+        error.value = null;
+
+        // Respaldo local inmediato
         const savedMatches = localStorage.getItem('union_matches');
         if (savedMatches) {
             matches.value = JSON.parse(savedMatches);
         } else {
             matches.value = initialMatches;
-            saveToLocalStorage();
+        }
+
+        try {
+            const data = await apiService.request('matches');
+            if (data && Array.isArray(data)) {
+                matches.value = data;
+                saveToLocalStorage();
+            }
+        } catch (err) {
+            console.error('Error loading matches:', err);
+            error.value = 'Error al sincronizar partidos.';
+        } finally {
+            isLoading.value = false;
         }
     };
 
@@ -61,36 +81,41 @@ export const useMatchesStore = defineStore('matches', () => {
     };
 
     // CRUD Operations
-    const addMatch = (match) => {
-        const newId = matches.value.length > 0 ? Math.max(...matches.value.map(m => m.id)) + 1 : 1;
-        const newMatch = {
-            ...match,
-            id: newId,
-            homeScore: match.homeScore || null,
-            awayScore: match.awayScore || null,
-            status: match.status || 'scheduled'
-        };
-        matches.value.push(newMatch);
-        saveToLocalStorage();
-        return newMatch;
-    };
-
-    const updateMatch = (id, updatedMatch) => {
-        const index = matches.value.findIndex(m => m.id === id);
-        if (index !== -1) {
-            matches.value[index] = { ...matches.value[index], ...updatedMatch };
-            saveToLocalStorage();
-            return true;
+    const addMatch = async (match) => {
+        try {
+            const result = await apiService.request('matches', 'POST', match);
+            if (result.status === 'success') {
+                await initMatches();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error adding match:', err);
         }
         return false;
     };
 
-    const deleteMatch = (id) => {
-        const index = matches.value.findIndex(m => m.id === id);
-        if (index !== -1) {
-            matches.value.splice(index, 1);
-            saveToLocalStorage();
-            return true;
+    const updateMatch = async (id, updatedMatch) => {
+        try {
+            const result = await apiService.request('matches', 'PUT', { ...updatedMatch, id });
+            if (result.status === 'success') {
+                await initMatches();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error updating match:', err);
+        }
+        return false;
+    };
+
+    const deleteMatch = async (id) => {
+        try {
+            const result = await apiService.request('matches', 'DELETE', { id });
+            if (result.status === 'success') {
+                await initMatches();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error deleting match:', err);
         }
         return false;
     };
@@ -111,42 +136,31 @@ export const useMatchesStore = defineStore('matches', () => {
 
     // Helper para parsear fechas "15 Ago" a objetos Date
     const parseDate = (dateStr, timeStr) => {
-        if (!dateStr || !timeStr) return new Date(8640000000000000); // Max valid date if missing
+        if (!dateStr || !timeStr) return new Date(8640000000000000);
 
         const months = {
             'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
             'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
         };
 
-        // Normalize input: lowercase and remove accents usually not needed for these abbrs but good practice
         const parts = dateStr.trim().split(' ');
-        if (parts.length < 2) {
-            console.warn('Invalid date format:', dateStr);
-            return new Date(8640000000000000);
-        }
+        if (parts.length < 2) return new Date(8640000000000000);
 
         const day = parseInt(parts[0]);
-        // Clean month str: remove dots, lowercase (e.g. "Ago." -> "ago")
         const monthAbbr = parts[1].toLowerCase().replace('.', '').substring(0, 3);
-
         const [hours, minutes] = timeStr.split(':');
 
-        if (months[monthAbbr] === undefined) {
-            console.warn('Unknown month:', monthAbbr, 'in', dateStr);
-            return new Date(8640000000000000);
-        }
+        if (months[monthAbbr] === undefined) return new Date(8640000000000000);
 
         const date = new Date();
         date.setMonth(months[monthAbbr]);
         date.setDate(day);
         date.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, 0, 0);
 
-        // Si la fecha ya pasó este año, asumir que es del año siguiente
         const now = new Date();
         if (date < now && (now.getMonth() > date.getMonth())) {
             date.setFullYear(now.getFullYear() + 1);
         }
-
         return date;
     };
 
@@ -159,6 +173,8 @@ export const useMatchesStore = defineStore('matches', () => {
 
     return {
         matches,
+        isLoading,
+        error,
         addMatch,
         updateMatch,
         deleteMatch,

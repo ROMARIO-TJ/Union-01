@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { apiService } from '../services/api';
 
 export const useGalleryStore = defineStore('gallery', () => {
     const photos = ref([]);
@@ -21,14 +22,33 @@ export const useGalleryStore = defineStore('gallery', () => {
         { id: 12, title: 'Resumen Campeonato', category: 'Videos', icon: 'fa-solid fa-video', type: 'video', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ' }
     ];
 
-    // Inicializar desde localStorage o usar datos iniciales
-    const initGallery = () => {
+    const isLoading = ref(false);
+    const error = ref(null);
+
+    // Inicializar sincronizando con el servidor
+    const initGallery = async () => {
+        isLoading.value = true;
+        error.value = null;
+
+        // Respaldo local
         const savedPhotos = localStorage.getItem('union_gallery');
         if (savedPhotos) {
             photos.value = JSON.parse(savedPhotos);
         } else {
             photos.value = initialPhotos;
-            saveToLocalStorage();
+        }
+
+        try {
+            const data = await apiService.request('gallery');
+            if (data && Array.isArray(data)) {
+                photos.value = data;
+                saveToLocalStorage();
+            }
+        } catch (err) {
+            console.error('Error loading gallery:', err);
+            error.value = 'Error al sincronizar galería.';
+        } finally {
+            isLoading.value = false;
         }
     };
 
@@ -38,18 +58,22 @@ export const useGalleryStore = defineStore('gallery', () => {
     };
 
     // CRUD Operations
-    const addPhoto = (photo) => {
-        const newId = photos.value.length > 0 ? Math.max(...photos.value.map(p => p.id)) + 1 : 1;
-        const newPhoto = {
-            ...photo,
-            id: newId
-        };
-        photos.value.push(newPhoto);
-        saveToLocalStorage();
-        return newPhoto;
+    const addPhoto = async (photo) => {
+        try {
+            const result = await apiService.request('gallery', 'POST', photo);
+            if (result.status === 'success') {
+                await initGallery();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error adding photo:', err);
+        }
+        return false;
     };
 
-    const updatePhoto = (id, updatedPhoto) => {
+    const updatePhoto = async (id, updatedPhoto) => {
+        // La API actual no tiene un PUT para gallery explícito, pero podríamos añadirlo si fuera necesario.
+        // Por ahora lo manejamos localmente o asumiendo que no se editan fotos a menudo.
         const index = photos.value.findIndex(p => p.id === id);
         if (index !== -1) {
             photos.value[index] = { ...photos.value[index], ...updatedPhoto };
@@ -59,12 +83,15 @@ export const useGalleryStore = defineStore('gallery', () => {
         return false;
     };
 
-    const deletePhoto = (id) => {
-        const index = photos.value.findIndex(p => p.id === id);
-        if (index !== -1) {
-            photos.value.splice(index, 1);
-            saveToLocalStorage();
-            return true;
+    const deletePhoto = async (id) => {
+        try {
+            const result = await apiService.request('gallery', 'DELETE', { id });
+            if (result.status === 'success') {
+                await initGallery();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error deleting photo:', err);
         }
         return false;
     };
@@ -86,6 +113,8 @@ export const useGalleryStore = defineStore('gallery', () => {
     return {
         photos,
         categories,
+        isLoading,
+        error,
         addPhoto,
         updatePhoto,
         deletePhoto,

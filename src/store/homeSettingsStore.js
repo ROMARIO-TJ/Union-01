@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { apiService } from '../services/api';
 
 export const useHomeSettingsStore = defineStore('homeSettings', () => {
     const sections = ref({
@@ -125,12 +126,17 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         }
     };
 
+    const isLoading = ref(false);
+    const error = ref(null);
+
     // --- METHODS ---
-    const initSettings = () => {
+    const initSettings = async () => {
+        isLoading.value = true;
+        error.value = null;
+
         const savedSettings = localStorage.getItem('union_home_settings_v3');
         if (savedSettings) {
             const parsed = JSON.parse(savedSettings);
-            // Merge sections visibility
             if (parsed.sections) {
                 Object.keys(sections.value).forEach(key => {
                     if (parsed.sections[key] !== undefined) {
@@ -138,7 +144,6 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
                     }
                 });
             }
-            // Load dynamic content
             heroSlides.value = parsed.heroSlides || initialSlides;
             philosophy.value = parsed.philosophy || initialPhilosophy;
             pageHeroes.value = parsed.pageHeroes || initialPageHeroes;
@@ -146,7 +151,43 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
             heroSlides.value = initialSlides;
             philosophy.value = initialPhilosophy;
             pageHeroes.value = initialPageHeroes;
-            saveToLocalStorage();
+        }
+
+        try {
+            const data = await apiService.request('settings', 'GET', { key: 'home_settings' });
+            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+                if (data.sections) {
+                    Object.keys(sections.value).forEach(key => {
+                        if (data.sections[key] !== undefined) {
+                            sections.value[key].enabled = data.sections[key].enabled;
+                        }
+                    });
+                }
+                heroSlides.value = data.heroSlides || initialSlides;
+                philosophy.value = data.philosophy || initialPhilosophy;
+                pageHeroes.value = data.pageHeroes || initialPageHeroes;
+                saveToLocalStorage();
+            }
+        } catch (err) {
+            console.error('Error loading home settings:', err);
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
+    const saveSettingsToServer = async () => {
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'home_settings',
+                value: {
+                    sections: sections.value,
+                    heroSlides: heroSlides.value,
+                    philosophy: philosophy.value,
+                    pageHeroes: pageHeroes.value
+                }
+            });
+        } catch (err) {
+            console.error('Error saving home settings to server:', err);
         }
     };
 
@@ -159,58 +200,66 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         }));
     };
 
-    const toggleSection = (sectionKey) => {
+    const toggleSection = async (sectionKey) => {
         if (sections.value[sectionKey]) {
             sections.value[sectionKey].enabled = !sections.value[sectionKey].enabled;
             saveToLocalStorage();
+            await saveSettingsToServer();
         }
     };
 
     // Hero Slides CRUD
-    const addHeroSlide = (slide) => {
+    const addHeroSlide = async (slide) => {
         const newId = heroSlides.value.length > 0 ? Math.max(...heroSlides.value.map(s => s.id)) + 1 : 1;
         heroSlides.value.push({ ...slide, id: newId });
         saveToLocalStorage();
+        await saveSettingsToServer();
     };
 
-    const updateHeroSlide = (id, updated) => {
+    const updateHeroSlide = async (id, updated) => {
         const index = heroSlides.value.findIndex(s => s.id === id);
         if (index !== -1) {
             heroSlides.value[index] = { ...heroSlides.value[index], ...updated, id };
             saveToLocalStorage();
+            await saveSettingsToServer();
         }
     };
 
-    const deleteHeroSlide = (id) => {
+    const deleteHeroSlide = async (id) => {
         heroSlides.value = heroSlides.value.filter(s => s.id !== id);
         saveToLocalStorage();
+        await saveSettingsToServer();
     };
 
     // Philosophy CRUD
-    const addPhilosophyItem = (item) => {
+    const addPhilosophyItem = async (item) => {
         const newId = philosophy.value.length > 0 ? Math.max(...philosophy.value.map(p => p.id)) + 1 : 1;
         philosophy.value.push({ ...item, id: newId });
         saveToLocalStorage();
+        await saveSettingsToServer();
     };
 
-    const updatePhilosophyItem = (id, updated) => {
+    const updatePhilosophyItem = async (id, updated) => {
         const index = philosophy.value.findIndex(p => p.id === id);
         if (index !== -1) {
             philosophy.value[index] = { ...philosophy.value[index], ...updated, id };
             saveToLocalStorage();
+            await saveSettingsToServer();
         }
     };
 
-    const deletePhilosophyItem = (id) => {
+    const deletePhilosophyItem = async (id) => {
         philosophy.value = philosophy.value.filter(p => p.id !== id);
         saveToLocalStorage();
+        await saveSettingsToServer();
     };
 
     // Page Heroes Update
-    const updatePageHero = (pageKey, updated) => {
+    const updatePageHero = async (pageKey, updated) => {
         if (pageHeroes.value[pageKey]) {
             pageHeroes.value[pageKey] = { ...pageHeroes.value[pageKey], ...updated };
             saveToLocalStorage();
+            await saveSettingsToServer();
         }
     };
 
@@ -221,6 +270,8 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         heroSlides,
         philosophy,
         pageHeroes,
+        isLoading,
+        error,
         toggleSection,
         addHeroSlide,
         updateHeroSlide,

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { apiService } from '../services/api';
 
 export const useTournamentStore = defineStore('tournament', () => {
     const standings = ref([]);
@@ -16,22 +17,49 @@ export const useTournamentStore = defineStore('tournament', () => {
 
     const categories = ['Sub 13', 'Sub 15', 'Sub 17', 'Sub 20', 'Primera C'];
 
-    const initStandings = () => {
+    const isLoading = ref(false);
+    const error = ref(null);
+
+    const initStandings = async () => {
+        isLoading.value = true;
+        error.value = null;
+
         const saved = localStorage.getItem('union_standings');
         if (saved) {
             standings.value = JSON.parse(saved);
         } else {
-            // Initialize with empty tables for known categories
             standings.value = categories.map(cat => ({
                 id: cat.toLowerCase().replace(/\s+/g, '-'),
                 category: cat,
                 teams: []
             }));
-            save();
+        }
+
+        try {
+            const data = await apiService.request('settings', 'GET', { key: 'tournament_standings' });
+            if (data && Array.isArray(data)) {
+                standings.value = data;
+                saveLocally();
+            }
+        } catch (err) {
+            console.error('Error loading tournament standings:', err);
+        } finally {
+            isLoading.value = false;
         }
     };
 
-    const save = () => {
+    const saveToServer = async () => {
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'tournament_standings',
+                value: standings.value
+            });
+        } catch (err) {
+            console.error('Error saving standings to server:', err);
+        }
+    };
+
+    const saveLocally = () => {
         localStorage.setItem('union_standings', JSON.stringify(standings.value));
     };
 
@@ -39,18 +67,19 @@ export const useTournamentStore = defineStore('tournament', () => {
         return standings.value.find(s => s.category === categoryName) || null;
     };
 
-    const updateStandings = (categoryId, teamsData) => {
+    const updateStandings = async (categoryId, teamsData) => {
         const index = standings.value.findIndex(s => s.id === categoryId);
         if (index !== -1) {
             standings.value[index].teams = teamsData;
-            // Auto sort by points (desc) then goal diff (desc)
+            // Auto sort
             standings.value[index].teams.sort((a, b) => {
                 if (b.points !== a.points) return b.points - a.points;
                 const diffA = a.gf - a.ga;
                 const diffB = b.gf - b.ga;
                 return diffB - diffA;
             });
-            save();
+            saveLocally();
+            await saveToServer();
             return true;
         }
         return false;
@@ -61,6 +90,8 @@ export const useTournamentStore = defineStore('tournament', () => {
     return {
         standings,
         categories,
+        isLoading,
+        error,
         getStandingsByCategory,
         updateStandings
     };

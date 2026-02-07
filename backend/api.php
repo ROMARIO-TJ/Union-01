@@ -39,6 +39,12 @@ switch ($action) {
     case 'benefits':
         handleBenefits($method, $conn);
         break;
+    case 'gallery':
+        handleGallery($method, $conn);
+        break;
+    case 'sponsors':
+        handleSponsors($method, $conn);
+        break;
     default:
         echo json_encode(["status" => "error", "message" => "Action not found"]);
         break;
@@ -264,7 +270,6 @@ function handleGallery($method, $conn) {
         $stmt = $conn->prepare("DELETE FROM gallery WHERE id = ?");
         $stmt->execute([$_GET['id']]);
         echo json_encode(["status" => "success"]);
-    }
     }
 }
 

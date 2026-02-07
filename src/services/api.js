@@ -1,7 +1,7 @@
 // Centralized API calls for the Union Jeguera backend
 
-const API_BASE = '/api/api.php';
-const UPLOAD_BASE = '/api/upload.php';
+const API_BASE = import.meta.env.VITE_API_URL || '/api/api.php';
+const UPLOAD_BASE = import.meta.env.VITE_UPLOAD_URL || '/api/upload.php';
 
 export const apiService = {
     // Generic request helper

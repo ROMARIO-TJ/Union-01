@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { apiService } from '../services/api';
 
 export const useSponsorsStore = defineStore('sponsors', () => {
     const sponsors = ref([]);
@@ -14,14 +15,33 @@ export const useSponsorsStore = defineStore('sponsors', () => {
         { id: 6, name: 'Sponsor 6', icon: 'fa-solid fa-handshake' }
     ];
 
-    // Inicializar desde localStorage o usar datos iniciales
-    const initSponsors = () => {
+    const isLoading = ref(false);
+    const error = ref(null);
+
+    // Inicializar sincronizando con el servidor
+    const initSponsors = async () => {
+        isLoading.value = true;
+        error.value = null;
+
+        // Respaldo local
         const savedSponsors = localStorage.getItem('union_sponsors');
         if (savedSponsors) {
             sponsors.value = JSON.parse(savedSponsors);
         } else {
             sponsors.value = initialSponsors;
-            saveToLocalStorage();
+        }
+
+        try {
+            const data = await apiService.request('sponsors');
+            if (data && Array.isArray(data)) {
+                sponsors.value = data;
+                saveToLocalStorage();
+            }
+        } catch (err) {
+            console.error('Error loading sponsors:', err);
+            error.value = 'Error al sincronizar patrocinadores.';
+        } finally {
+            isLoading.value = false;
         }
     };
 
@@ -31,33 +51,41 @@ export const useSponsorsStore = defineStore('sponsors', () => {
     };
 
     // CRUD Operations
-    const addSponsor = (sponsor) => {
-        const newId = sponsors.value.length > 0 ? Math.max(...sponsors.value.map(s => s.id)) + 1 : 1;
-        const newSponsor = {
-            ...sponsor,
-            id: newId
-        };
-        sponsors.value.push(newSponsor);
-        saveToLocalStorage();
-        return newSponsor;
-    };
-
-    const updateSponsor = (id, updatedSponsor) => {
-        const index = sponsors.value.findIndex(s => s.id === id);
-        if (index !== -1) {
-            sponsors.value[index] = { ...sponsors.value[index], ...updatedSponsor };
-            saveToLocalStorage();
-            return true;
+    const addSponsor = async (sponsor) => {
+        try {
+            const result = await apiService.request('sponsors', 'POST', sponsor);
+            if (result.status === 'success') {
+                await initSponsors();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error adding sponsor:', err);
         }
         return false;
     };
 
-    const deleteSponsor = (id) => {
-        const index = sponsors.value.findIndex(s => s.id === id);
-        if (index !== -1) {
-            sponsors.value.splice(index, 1);
-            saveToLocalStorage();
-            return true;
+    const updateSponsor = async (id, updatedSponsor) => {
+        try {
+            const result = await apiService.request('sponsors', 'PUT', { ...updatedSponsor, id });
+            if (result.status === 'success') {
+                await initSponsors();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error updating sponsor:', err);
+        }
+        return false;
+    };
+
+    const deleteSponsor = async (id) => {
+        try {
+            const result = await apiService.request('sponsors', 'DELETE', { id });
+            if (result.status === 'success') {
+                await initSponsors();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error deleting sponsor:', err);
         }
         return false;
     };
@@ -71,6 +99,8 @@ export const useSponsorsStore = defineStore('sponsors', () => {
 
     return {
         sponsors,
+        isLoading,
+        error,
         addSponsor,
         updateSponsor,
         deleteSponsor,

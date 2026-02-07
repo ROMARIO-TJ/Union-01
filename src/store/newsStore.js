@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { apiService } from '../services/api';
 
 export const useNewsStore = defineStore('news', () => {
     const news = ref([]);
@@ -80,50 +81,80 @@ export const useNewsStore = defineStore('news', () => {
         }
     ];
 
-    // Inicializar desde localStorage o usar datos iniciales
-    const initNews = () => {
+    const isLoading = ref(false);
+    const error = ref(null);
+
+    // Inicializar sincronizando con el servidor
+    const initNews = async () => {
+        isLoading.value = true;
+        error.value = null;
+
+        // Carga rápida del respaldo local
         const savedNews = localStorage.getItem('union_news');
         if (savedNews) {
             news.value = JSON.parse(savedNews);
         } else {
             news.value = initialNews;
-            saveToLocalStorage();
+        }
+
+        try {
+            const data = await apiService.request('news');
+            if (data && Array.isArray(data)) {
+                news.value = data.map(item => ({
+                    ...item,
+                    date: item.date_str // Normalizar el campo de fecha de la DB
+                }));
+                saveToLocalStorage();
+            }
+        } catch (err) {
+            console.error('Error al cargar noticias del servidor:', err);
+            error.value = 'No se pudieron sincronizar las noticias.';
+        } finally {
+            isLoading.value = false;
         }
     };
 
-    // Guardar en localStorage
+    // Guardar en localStorage como caché
     const saveToLocalStorage = () => {
         localStorage.setItem('union_news', JSON.stringify(news.value));
     };
 
     // CRUD Operations
-    const addNews = (newsItem) => {
-        const newId = news.value.length > 0 ? Math.max(...news.value.map(n => n.id)) + 1 : 1;
-        const newNews = {
-            ...newsItem,
-            id: newId
-        };
-        news.value.unshift(newNews);
-        saveToLocalStorage();
-        return newNews;
-    };
-
-    const updateNews = (id, updatedNews) => {
-        const index = news.value.findIndex(n => n.id === id);
-        if (index !== -1) {
-            news.value[index] = { ...news.value[index], ...updatedNews };
-            saveToLocalStorage();
-            return true;
+    const addNews = async (newsItem) => {
+        try {
+            const result = await apiService.request('news', 'POST', newsItem);
+            if (result.status === 'success') {
+                await initNews();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error al añadir noticia:', err);
         }
         return false;
     };
 
-    const deleteNews = (id) => {
-        const index = news.value.findIndex(n => n.id === id);
-        if (index !== -1) {
-            news.value.splice(index, 1);
-            saveToLocalStorage();
-            return true;
+    const updateNews = async (id, updatedNews) => {
+        try {
+            const result = await apiService.request('news', 'PUT', { ...updatedNews, id });
+            if (result.status === 'success') {
+                await initNews();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error al actualizar noticia:', err);
+        }
+        return false;
+    };
+
+    const deleteNews = async (id) => {
+        try {
+            const result = await apiService.request('news', 'DELETE', { id });
+            if (result.status === 'success') {
+                await initNews();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error al eliminar noticia:', err);
         }
         return false;
     };
@@ -141,6 +172,8 @@ export const useNewsStore = defineStore('news', () => {
 
     return {
         news,
+        isLoading,
+        error,
         addNews,
         updateNews,
         deleteNews,

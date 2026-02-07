@@ -7,8 +7,8 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Credenciales por defecto
     const DEFAULT_CREDENTIALS = {
-        username: 'admin',
-        password: '12345'
+        username: 'union',
+        password: 'Anasophia302304'
     };
 
     // Inicializar desde localStorage
