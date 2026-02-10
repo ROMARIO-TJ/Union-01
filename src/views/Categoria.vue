@@ -7,7 +7,7 @@
         <section class="categorias-section">
             <div class="container">
                 <div class="categorias-grid">
-                    <div v-for="categoria in categoryStore.categories" :key="categoria.id" class="categoria-card">
+                    <div v-for="categoria in orderedCategories" :key="categoria.id" class="categoria-card">
                         <div class="categoria-icon-wrapper">
                             <i :class="categoria.icon"></i>
                         </div>
@@ -62,8 +62,7 @@
             <div class="container">
                 <h2 class="section-title text-center">Nuestros <span class="text-accent">Equipos</span></h2>
                 <div class="gallery-grid">
-                    <div v-for="categoria in categoryStore.categories" :key="`img-${categoria.id}`" class="gallery-item"
-                        @click="openLightbox(categoria)">
+                    <div v-for="categoria in orderedCategories" :key="`img-${categoria.id}`" class="gallery-item">
                         <div v-if="categoria.teamImage" class="img-wrapper">
                             <img :src="categoria.teamImage" :alt="categoria.name">
                             <div class="img-overlay">
@@ -100,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useCategoryStore } from '../store/categoryStore';
 import PageHero from '../components/PageHero.vue';
 import SponsorsCarousel from '../components/SponsorsCarousel.vue';
@@ -109,6 +108,34 @@ import clubHeroImg from '../assets/img/heroes/club_hero.png';
 const categoryStore = useCategoryStore();
 const lightboxOpen = ref(false);
 const selectedTeam = ref(null);
+
+// =======================
+// ORDEN AUTOMÁTICO CATEGORÍAS (FRONTEND)
+// =======================
+const orderedCategories = computed(() => {
+    if (!categoryStore.categories) return [];
+
+    const orderValue = (name) => {
+        const n = name.toLowerCase();
+
+        // 1️⃣ Escuela de formación
+        if (n.includes('escuela')) return 0;
+
+        // 2️⃣ Sub categorías (Sub-13, Sub-15...)
+        const sub = n.match(/sub[\s-]*(\d+)/);
+        if (sub) return 100 + parseInt(sub[1]);
+
+        // 3️⃣ Primera
+        if (n.includes('primera')) return 300;
+
+        // 4️⃣ Otras
+        return 999;
+    };
+
+    return [...categoryStore.categories].sort(
+        (a, b) => orderValue(a.name) - orderValue(b.name)
+    );
+});
 
 const openLightbox = (team) => {
     if (!team.teamImage) return;
@@ -122,8 +149,8 @@ const closeLightbox = () => {
     selectedTeam.value = null;
     document.body.style.overflow = 'auto';
 };
-
 </script>
+
 
 <style scoped>
 /* CONTAINER */

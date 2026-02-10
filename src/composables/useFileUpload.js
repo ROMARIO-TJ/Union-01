@@ -1,53 +1,53 @@
 import { ref } from 'vue';
 
 /**
- * Composable for handling file uploads.
- * Currently converts files to Base64 for local storage,
- * but structured to be easily replaced by an API call.
+ * Composable GLOBAL para subida de imágenes a servidor (PRODUCCIÓN)
+ * ❌ NO usa Base64
+ * ✅ Usa FormData + PHP
+ * ✅ Retorna URL pública
  */
 export function useFileUpload() {
     const isUploading = ref(false);
     const uploadError = ref(null);
 
     /**
-     * Process a file selected by the user.
-     * @param {File} file - The file to upload.
-     * @returns {Promise<string>} - The "URL" of the uploaded file (Base64 for now).
+     * Sube un archivo al servidor
+     * @param {File} file
+     * @returns {Promise<string>} URL pública del archivo
      */
     const uploadFile = async (file) => {
         isUploading.value = true;
         uploadError.value = null;
 
         try {
-            // Logic for current Phase (Local Storage / Base64)
-            const base64Url = await fileToBase64(file);
+            const formData = new FormData();
+            formData.append('file', file);
 
-            // LOGIC FOR FUTURE PHASE (API):
-            // const formData = new FormData();
-            // formData.append('file', file);
-            // const response = await fetch('/api/upload', { method: 'POST', body: formData });
-            // const data = await response.json();
-            // return data.url;
+            // ⚠️ AJUSTA esta URL si tu backend está en otra ruta
+            const response = await fetch('/api/upload.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+
+            const data = await response.json();
+
+            if (data.status !== 'success' || !data.url) {
+                throw new Error(data.message || 'Error al subir archivo');
+            }
 
             isUploading.value = false;
-            return base64Url;
-        } catch (err) {
+            return data.url;
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            uploadError.value = 'Error al subir la imagen';
             isUploading.value = false;
-            uploadError.value = 'Error al procesar el archivo';
-            throw err;
+            throw error;
         }
-    };
-
-    /**
-     * Helper to convert a File to a Base64 string.
-     */
-    const fileToBase64 = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(file);
-        });
     };
 
     return {

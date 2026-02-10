@@ -149,9 +149,17 @@
                         <div class="details-group">
                             <label>Documento de Identidad</label>
                             <div class="dni-preview">
-                                <img v-if="selectedPlayer.dniImage" :src="selectedPlayer.dniImage">
+                                <!-- IMAGEN -->
+                                <img v-if="selectedPlayer.dniImage && !selectedPlayer.dniImage.endsWith('.pdf')"
+                                    :src="selectedPlayer.dniImage">
+
+                                <!-- PDF -->
+                                <iframe v-else-if="selectedPlayer.dniImage && selectedPlayer.dniImage.endsWith('.pdf')"
+                                    :src="selectedPlayer.dniImage" class="pdf-preview"></iframe>
+
                                 <div v-else class="photo-placeholder">No disponible</div>
                             </div>
+
                         </div>
                     </div>
 
@@ -244,7 +252,60 @@ const isFilterOpen = ref(false);
 const filterWrapper = ref(null);
 const selectedPlayer = ref(null);
 
-const categories = ['Escuela de Formación', 'Sub-13', 'Sub-15', 'Sub-17', 'Sub-20'];
+const categories = computed(() => {
+    const normalize = (cat) =>
+        cat
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .replace('sub-', 'sub ')
+            .replace('sub ', 'sub ');
+
+    const map = new Map();
+
+    playersStore.players.forEach(p => {
+        if (!p.category) return;
+        const key = normalize(p.category);
+        if (!map.has(key)) {
+            map.set(key, p.category.trim());
+        }
+    });
+
+    const uniqueCategories = Array.from(map.values());
+
+    return uniqueCategories.sort((a, b) => {
+        const getPriority = (cat) => {
+            const lower = cat.toLowerCase();
+
+            if (lower.includes('escuela')) {
+                return { type: 0, value: 0 };
+            }
+
+            const subMatch = lower.match(/sub[\s-]*(\d+)/);
+            if (subMatch) {
+                return { type: 1, value: parseInt(subMatch[1]) };
+            }
+
+            if (lower.includes('primera')) {
+                return { type: 2, value: 0 };
+            }
+
+            return { type: 3, value: 0 };
+        };
+
+        const pa = getPriority(a);
+        const pb = getPriority(b);
+
+        if (pa.type !== pb.type) {
+            return pa.type - pb.type;
+        }
+
+        return pa.value - pb.value;
+    });
+});
+
+
+
 
 const toggleFilter = () => {
     isFilterOpen.value = !isFilterOpen.value;
@@ -269,13 +330,26 @@ onUnmounted(() => {
     document.removeEventListener('click', handleClickOutside);
 });
 
+const normalize = (cat) =>
+    cat
+        ?.trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace('sub-', 'sub ');
+
 const filteredPlayers = computed(() => {
     return playersStore.players.filter(p => {
-        const matchesCategory = filterCategory.value === 'Todas' || p.category === filterCategory.value;
-        const matchesSearch = p.fullName.toLowerCase().includes(searchQuery.value.toLowerCase());
+        const matchesCategory =
+            filterCategory.value === 'Todas' ||
+            normalize(p.category) === normalize(filterCategory.value);
+
+        const matchesSearch =
+            p.fullName.toLowerCase().includes(searchQuery.value.toLowerCase());
+
         return matchesCategory && matchesSearch;
     });
 });
+
 
 const viewDetails = (player) => {
     selectedPlayer.value = { ...player };
@@ -585,6 +659,13 @@ const deletePlayer = async (id) => {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
+}
+
+.pdf-preview {
+    width: 100%;
+    height: 350px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
 }
 
 .info-box {

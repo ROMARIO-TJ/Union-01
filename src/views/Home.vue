@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useNewsStore } from '../store/newsStore';
 import { useMatchesStore } from '../store/matchesStore';
 import { useSponsorsStore } from '../store/sponsorsStore';
@@ -9,12 +9,45 @@ import { useHomeSettingsStore } from '../store/homeSettingsStore';
 import HomeHero from '../components/HomeHero.vue';
 import SponsorsCarousel from '../components/SponsorsCarousel.vue';
 
+
+
 const newsStore = useNewsStore();
 const matchesStore = useMatchesStore();
 const sponsorsStore = useSponsorsStore();
 const categoryStore = useCategoryStore();
 const globalSettings = useGlobalSettingsStore();
 const homeSettings = useHomeSettingsStore();
+
+// =======================
+// ORDEN DE CATEGORÍAS (HOME)
+// =======================
+const orderedCategories = computed(() => {
+  if (!categoryStore.categories) return [];
+
+  const orderValue = (name) => {
+    const n = name.toLowerCase();
+
+    if (n.includes('escuela')) return 0;
+
+    const sub = n.match(/sub[\s-]*(\d+)/);
+    if (sub) return 100 + parseInt(sub[1]);
+
+    if (n.includes('primera')) return 300;
+
+    return 999;
+  };
+
+  return [...categoryStore.categories].sort(
+    (a, b) => orderValue(a.name) - orderValue(b.name)
+  );
+});
+
+// SOLO LAS 4 PRIMERAS (YA ORDENADAS)
+const previewCategories = computed(() =>
+  orderedCategories.value.slice(0, 4)
+);
+
+
 
 const latestNews = newsStore.getLatestNews(3);
 const upcomingMatches = matchesStore.getUpcomingMatches();
@@ -148,8 +181,7 @@ onUnmounted(() => {
         </div>
 
         <div class="categories-preview-grid">
-          <div v-for="categoria in categoryStore.categories.slice(0, 4)" :key="categoria.id"
-            class="category-preview-card">
+          <div v-for="categoria in previewCategories" :key="categoria.id" class="category-preview-card">
             <div class="category-preview-icon">
               <i :class="categoria.icon"></i>
             </div>

@@ -1,53 +1,74 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { apiService } from '../services/api';
+
+/* ===============================
+   Helper: Normalizar URLs YouTube
+================================ */
+function normalizeYouTubeUrl(url) {
+    if (!url) return '';
+
+    // youtu.be/XXXX
+    if (url.includes('youtu.be/')) {
+        const id = url.split('youtu.be/')[1].split('?')[0];
+        return `https://www.youtube.com/embed/${id}`;
+    }
+
+    // youtube.com/watch?v=XXXX
+    if (url.includes('watch?v=')) {
+        const id = url.split('watch?v=')[1].split('&')[0];
+        return `https://www.youtube.com/embed/${id}`;
+    }
+
+    // ya es embed
+    if (url.includes('/embed/')) {
+        return url;
+    }
+
+    return '';
+}
 
 export const useGalleryStore = defineStore('gallery', () => {
     const photos = ref([]);
-    const categories = ref(['Todas', 'Partidos', 'Entrenamientos', 'Eventos', 'Instalaciones', 'Videos']);
-
-    // Datos iniciales
-    const initialPhotos = [
-        { id: 1, title: 'Partido vs Rival FC', category: 'Partidos', icon: 'fa-solid fa-futbol', type: 'photo' },
-        { id: 2, title: 'Entrenamiento Sub-20', category: 'Entrenamientos', icon: 'fa-solid fa-person-running', type: 'photo' },
-        { id: 3, title: 'Celebración Campeonato', category: 'Eventos', icon: 'fa-solid fa-trophy', type: 'photo' },
-        { id: 4, title: 'Estadio Municipal', category: 'Instalaciones', icon: 'fa-solid fa-building', type: 'photo' },
-        { id: 5, title: 'Final Local 2024', category: 'Partidos', icon: 'fa-solid fa-futbol', type: 'photo' },
-        { id: 6, title: 'Práctica Táctica', category: 'Entrenamientos', icon: 'fa-solid fa-clipboard', type: 'photo' },
-        { id: 7, title: 'Día del Hincha', category: 'Eventos', icon: 'fa-solid fa-users', type: 'photo' },
-        { id: 8, title: 'Vestuarios', category: 'Instalaciones', icon: 'fa-solid fa-door-open', type: 'photo' },
-        { id: 9, title: 'Highlights Partido', category: 'Videos', icon: 'fa-solid fa-video', type: 'video', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
-        { id: 10, title: 'Goles de la Semana', category: 'Videos', icon: 'fa-solid fa-video', type: 'video', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
-        { id: 11, title: 'Entrenamiento Táctico', category: 'Videos', icon: 'fa-solid fa-video', type: 'video', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
-        { id: 12, title: 'Resumen Campeonato', category: 'Videos', icon: 'fa-solid fa-video', type: 'video', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ' }
-    ];
+    const categories = ref([
+        'Todas',
+        'Partidos',
+        'Entrenamientos',
+        'Eventos',
+        'Instalaciones',
+        'Videos'
+    ]);
 
     const isLoading = ref(false);
     const error = ref(null);
 
-    // Inicializar sincronizando con el servidor
+    /* ===============================
+       Inicializar Galería
+    ================================ */
     const initGallery = async () => {
         isLoading.value = true;
         error.value = null;
 
-        // 1. Cargar caché local para feedback instantáneo
+        // Cache local
         const savedPhotos = localStorage.getItem('union_gallery');
         if (savedPhotos) {
             photos.value = JSON.parse(savedPhotos);
-        } else if (photos.value.length === 0) {
-            photos.value = initialPhotos;
         }
 
         try {
-            // 2. Traer datos reales del servidor
             const data = await apiService.request('gallery');
-            if (data && Array.isArray(data)) {
+            if (Array.isArray(data)) {
                 photos.value = data.map(item => ({
                     ...item,
-                    image: item.url || item.image || '',
-                    title: item.caption || item.title || ''
+                    image: item.url || '',
+                    title: item.caption || item.title || '',
+                    videoUrl: normalizeYouTubeUrl(item.videoUrl || '')
                 }));
-                localStorage.setItem('union_gallery', JSON.stringify(photos.value));
+
+                localStorage.setItem(
+                    'union_gallery',
+                    JSON.stringify(photos.value)
+                );
             }
         } catch (err) {
             console.error('Error loading gallery:', err);
@@ -57,17 +78,18 @@ export const useGalleryStore = defineStore('gallery', () => {
         }
     };
 
-    // CRUD Operations - Backend First
+    /* ===============================
+       CRUD
+    ================================ */
     const addPhoto = async (photo) => {
         isLoading.value = true;
         try {
-            // Limpiar objeto para la BD
             const photoData = {
                 title: photo.title || '',
                 category: photo.category || '',
                 type: photo.type || 'photo',
-                url: photo.url || photo.image || '', // Mapear image a url
-                videoUrl: photo.videoUrl || '',
+                url: photo.url || photo.image || '',
+                videoUrl: normalizeYouTubeUrl(photo.videoUrl || ''),
                 icon: photo.icon || 'fa-solid fa-image'
             };
 
@@ -87,15 +109,16 @@ export const useGalleryStore = defineStore('gallery', () => {
         try {
             const photoData = {
                 id,
-                title: updatedPhoto.title,
-                category: updatedPhoto.category,
-                type: updatedPhoto.type,
+                title: updatedPhoto.title || '',
+                category: updatedPhoto.category || '',
+                type: updatedPhoto.type || 'photo',
                 url: updatedPhoto.url || updatedPhoto.image || '',
-                videoUrl: updatedPhoto.videoUrl || '',
-                icon: updatedPhoto.icon
+                videoUrl: normalizeYouTubeUrl(updatedPhoto.videoUrl || ''),
+                icon: updatedPhoto.icon || 'fa-solid fa-image'
             };
+
             const result = await apiService.request('gallery', 'PUT', photoData);
-            if (result.status === 'success') {
+            if (result?.status === 'success') {
                 await initGallery();
                 return true;
             }
@@ -111,7 +134,7 @@ export const useGalleryStore = defineStore('gallery', () => {
         isLoading.value = true;
         try {
             const result = await apiService.request('gallery', 'DELETE', { id });
-            if (result.status === 'success') {
+            if (result?.status === 'success') {
                 await initGallery();
                 return true;
             }
@@ -123,18 +146,15 @@ export const useGalleryStore = defineStore('gallery', () => {
         return false;
     };
 
-    const getPhotoById = (id) => {
-        return photos.value.find(p => p.id === parseInt(id));
-    };
+    const getPhotoById = (id) =>
+        photos.value.find(p => p.id === parseInt(id));
 
-    const getPhotosByCategory = (category) => {
-        if (category === 'Todas') {
-            return photos.value;
-        }
-        return photos.value.filter(p => p.category === category);
-    };
+    const getPhotosByCategory = (category) =>
+        category === 'Todas'
+            ? photos.value
+            : photos.value.filter(p => p.category === category);
 
-    // Inicializar al cargar
+    // Auto init
     initGallery();
 
     return {

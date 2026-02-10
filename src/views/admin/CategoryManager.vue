@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useCategoryStore } from '../../store/categoryStore';
 import { useFileUpload } from '../../composables/useFileUpload';
 import HeroEditor from '../../components/admin/HeroEditor.vue';
@@ -12,16 +12,37 @@ const isEditing = ref(false);
 const currentId = ref(null);
 const fileInput = ref(null);
 
-// Benefits State
-const isBenefitModalOpen = ref(false);
-const isEditingBenefit = ref(false);
-const currentBenefitId = ref(null);
-const benefitFormData = ref({
-    title: '',
-    description: '',
-    icon: 'fa-solid fa-star'
+// =======================
+// ORDEN AUTOMÁTICO CATEGORÍAS
+// =======================
+const orderedCategories = computed(() => {
+    if (!categoryStore.categories) return [];
+
+    const orderValue = (name) => {
+        const n = name.toLowerCase();
+
+        // 1️⃣ Escuela de formación
+        if (n.includes('escuela')) return 0;
+
+        // 2️⃣ Sub categorías
+        const sub = n.match(/sub[\s-]*(\d+)/);
+        if (sub) return 100 + parseInt(sub[1]);
+
+        // 3️⃣ Primera
+        if (n.includes('primera')) return 300;
+
+        // 4️⃣ Otras
+        return 999;
+    };
+
+    return [...categoryStore.categories].sort(
+        (a, b) => orderValue(a.name) - orderValue(b.name)
+    );
 });
 
+// =======================
+// FORMULARIO
+// =======================
 const formData = ref({
     name: '',
     age: '',
@@ -64,7 +85,7 @@ const handleFileUpload = async (event) => {
     try {
         const url = await uploadFile(file);
         formData.value.teamImage = url;
-    } catch (error) {
+    } catch {
         alert('Error al subir la imagen');
     }
 };
@@ -87,40 +108,8 @@ const deleteItem = async (id) => {
         await categoryStore.deleteCategory(id);
     }
 };
-
-// Benefit Methods
-const openBenefitCreateModal = () => {
-    isEditingBenefit.value = false;
-    benefitFormData.value = {
-        title: '',
-        description: '',
-        icon: 'fa-solid fa-star'
-    };
-    isBenefitModalOpen.value = true;
-};
-
-const openBenefitEditModal = (benefit) => {
-    isEditingBenefit.value = true;
-    currentBenefitId.value = benefit.id;
-    benefitFormData.value = { ...benefit };
-    isBenefitModalOpen.value = true;
-};
-
-const handleBenefitSubmit = async () => {
-    if (isEditingBenefit.value) {
-        await categoryStore.updateBenefit(currentBenefitId.value, benefitFormData.value);
-    } else {
-        await categoryStore.addBenefit(benefitFormData.value);
-    }
-    isBenefitModalOpen.value = false;
-};
-
-const deleteBenefit = async (id) => {
-    if (confirm('¿Estás seguro de eliminar este beneficio?')) {
-        await categoryStore.deleteBenefit(id);
-    }
-};
 </script>
+
 
 <template>
     <div class="category-manager">
@@ -145,7 +134,7 @@ const deleteBenefit = async (id) => {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in categoryStore.categories" :key="item.id">
+                        <tr v-for="item in orderedCategories" :key="item.id">
                             <td>
                                 <div class="category-icon-preview">
                                     <i :class="item.icon"></i>
@@ -172,7 +161,7 @@ const deleteBenefit = async (id) => {
 
         <!-- MOBILE VIEW -->
         <div class="admin-cards-grid">
-            <div v-for="item in categoryStore.categories" :key="item.id" class="admin-card-item">
+            <div v-for="item in orderedCategories" :key="item.id" class="admin-card-item">
                 <div class="admin-card-item__header">
                     <div class="category-icon-preview">
                         <i :class="item.icon"></i>

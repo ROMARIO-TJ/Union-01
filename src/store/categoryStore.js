@@ -4,10 +4,14 @@ import { apiService } from '../services/api';
 import escuelaImg from '../assets/img/teams/escuela.png';
 
 export const useCategoryStore = defineStore('categories', () => {
+
     const categories = ref([]);
     const benefits = ref([]);
     const isLoading = ref(false);
 
+    /* ================================
+       DATOS DE RESPALDO (LOCAL)
+    ================================= */
     const initialCategories = [
         {
             id: 1,
@@ -42,61 +46,102 @@ export const useCategoryStore = defineStore('categories', () => {
     ];
 
     const initialBenefits = [
-        { id: 1, title: 'Formación Integral', description: 'Desarrollo técnico, táctico y humano', icon: 'fa-solid fa-trophy' },
-        { id: 2, title: 'Entrenadores Certificados', description: 'Profesionales con experiencia comprobada', icon: 'fa-solid fa-users' },
-        { id: 3, title: 'Instalaciones de Calidad', description: 'Canchas y equipamiento adecuado', icon: 'fa-solid fa-futbol' },
-        { id: 4, title: 'Ambiente Familiar', description: 'Valores de respeto y compañerismo', icon: 'fa-solid fa-heart' }
+        {
+            id: 1,
+            title: '',
+            description: 'Desarrollo técnico, táctico y humano',
+            icon: 'fa-solid fa-trophy'
+        },
+        {
+            id: 2,
+            title: 'Entrenadores Certificados',
+            description: 'Profesionales con experiencia comprobada',
+            icon: 'fa-solid fa-users'
+        },
+        {
+            id: 3,
+            title: 'Instalaciones de Calidad',
+            description: 'Canchas y equipamiento adecuado',
+            icon: 'fa-solid fa-futbol'
+        },
+        {
+            id: 4,
+            title: 'Ambiente Familiar',
+            description: 'Valores de respeto y compañerismo',
+            icon: 'fa-solid fa-heart'
+        }
     ];
 
-    // Inicializar con recuperación de datos híbrida
+    /* ================================
+       INICIALIZACIÓN HÍBRIDA
+    ================================= */
     const initCategories = async () => {
         isLoading.value = true;
 
-        // 1. Cargar datos locales como respaldo inmediato para evitar "pantalla en blanco"
+        // 1️⃣ Cargar respaldo local (rápido)
         const localCats = localStorage.getItem('union_categories_v2');
         const localBenefits = localStorage.getItem('union_benefits_v1');
 
-        if (localCats) categories.value = JSON.parse(localCats);
-        else categories.value = initialCategories;
+        categories.value = localCats
+            ? JSON.parse(localCats)
+            : initialCategories;
 
-        if (localBenefits) benefits.value = JSON.parse(localBenefits);
-        else benefits.value = initialBenefits;
+        benefits.value = localBenefits
+            ? JSON.parse(localBenefits)
+            : initialBenefits;
 
         try {
-            // 2. Intentar sincronizar con el backend de Hostinger
+            // 2️⃣ Sincronizar con backend
             const [catsData, benefitsData] = await Promise.all([
                 apiService.request('categories').catch(() => null),
                 apiService.request('benefits').catch(() => null)
             ]);
 
-            // Si el servidor responde con datos (no vacío), actualizamos
-            if (catsData && catsData.length > 0) {
+            // ✅ CATEGORIES (acepta arrays vacíos)
+            if (Array.isArray(catsData)) {
                 categories.value = catsData;
-                localStorage.setItem('union_categories_v2', JSON.stringify(catsData));
+                localStorage.setItem(
+                    'union_categories_v2',
+                    JSON.stringify(catsData)
+                );
             }
-            if (benefitsData && benefitsData.length > 0) {
+
+            // ✅ BENEFITS (FIX CLAVE)
+            if (Array.isArray(benefitsData)) {
                 benefits.value = benefitsData;
-                localStorage.setItem('union_benefits_v1', JSON.stringify(benefitsData));
+                localStorage.setItem(
+                    'union_benefits_v1',
+                    JSON.stringify(benefitsData)
+                );
             }
 
         } catch (error) {
-            console.warn('Conexión con Hostinger fallida. Usando datos guardados localmente.');
+            console.warn(
+                'Backend no disponible. Usando datos locales.',
+                error
+            );
         } finally {
             isLoading.value = false;
         }
     };
 
-    // --- CATEGORIES ---
+    /* ================================
+       CATEGORIES CRUD
+    ================================= */
     const addCategory = async (category) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('categories', 'POST', category);
-            if (result.status === 'success') {
+            const res = await apiService.request(
+                'categories',
+                'POST',
+                category
+            );
+            if (res?.status === 'success') {
                 await initCategories();
                 return true;
             }
-        } catch (error) {
-            console.error('Error adding category:', error);
+        } catch (e) {
+            console.error('Error adding category:', e);
         } finally {
             isLoading.value = false;
         }
@@ -106,13 +151,17 @@ export const useCategoryStore = defineStore('categories', () => {
     const updateCategory = async (id, updated) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('categories', 'PUT', { ...updated, id });
-            if (result.status === 'success') {
+            const res = await apiService.request(
+                'categories',
+                'PUT',
+                { ...updated, id }
+            );
+            if (res?.status === 'success') {
                 await initCategories();
                 return true;
             }
-        } catch (error) {
-            console.error('Error updating category:', error);
+        } catch (e) {
+            console.error('Error updating category:', e);
         } finally {
             isLoading.value = false;
         }
@@ -122,30 +171,40 @@ export const useCategoryStore = defineStore('categories', () => {
     const deleteCategory = async (id) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('categories', 'DELETE', { id });
-            if (result.status === 'success') {
+            const res = await apiService.request(
+                'categories',
+                'DELETE',
+                { id }
+            );
+            if (res?.status === 'success') {
                 await initCategories();
                 return true;
             }
-        } catch (error) {
-            console.error('Error deleting category:', error);
+        } catch (e) {
+            console.error('Error deleting category:', e);
         } finally {
             isLoading.value = false;
         }
         return false;
     };
 
-    // --- BENEFITS ---
+    /* ================================
+       BENEFITS CRUD
+    ================================= */
     const addBenefit = async (benefit) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('benefits', 'POST', benefit);
-            if (result.status === 'success') {
+            const res = await apiService.request(
+                'benefits',
+                'POST',
+                benefit
+            );
+            if (res?.status === 'success') {
                 await initCategories();
                 return true;
             }
-        } catch (error) {
-            console.error('Error adding benefit:', error);
+        } catch (e) {
+            console.error('Error adding benefit:', e);
         } finally {
             isLoading.value = false;
         }
@@ -155,13 +214,17 @@ export const useCategoryStore = defineStore('categories', () => {
     const updateBenefit = async (id, updated) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('benefits', 'PUT', { ...updated, id });
-            if (result.status === 'success') {
+            const res = await apiService.request(
+                'benefits',
+                'PUT',
+                { ...updated, id }
+            );
+            if (res?.status === 'success') {
                 await initCategories();
                 return true;
             }
-        } catch (error) {
-            console.error('Error updating benefit:', error);
+        } catch (e) {
+            console.error('Error updating benefit:', e);
         } finally {
             isLoading.value = false;
         }
@@ -171,19 +234,24 @@ export const useCategoryStore = defineStore('categories', () => {
     const deleteBenefit = async (id) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('benefits', 'DELETE', { id });
-            if (result.status === 'success') {
+            const res = await apiService.request(
+                'benefits',
+                'DELETE',
+                { id }
+            );
+            if (res?.status === 'success') {
                 await initCategories();
                 return true;
             }
-        } catch (error) {
-            console.error('Error deleting benefit:', error);
+        } catch (e) {
+            console.error('Error deleting benefit:', e);
         } finally {
             isLoading.value = false;
         }
         return false;
     };
 
+    // 🚀 Auto-init
     initCategories();
 
     return {
