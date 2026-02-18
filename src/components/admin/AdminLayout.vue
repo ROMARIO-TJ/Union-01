@@ -13,8 +13,14 @@ const toggleMobileMenu = () => {
 };
 
 const logout = () => {
+  const isParent = authStore.user?.role === 'padre_familia';
   authStore.logout();
-  router.push('/admin/login');
+
+  if (isParent) {
+    router.push('/portal-padres');
+  } else {
+    router.push('/admin/login');
+  }
 };
 
 const closeMenuOnMobile = () => {
@@ -88,14 +94,8 @@ const navigation = computed(() => {
       </div>
 
       <nav class="admin-sidebar__menu">
-        <router-link 
-          v-for="item in navigation" 
-          :key="item.name" 
-          :to="item.to" 
-          class="admin-nav-item" 
-          :exact="item.to === '/admin'"
-          @click="closeMenuOnMobile"
-        >
+        <router-link v-for="item in navigation" :key="item.name" :to="item.to" class="admin-nav-item"
+          :exact="item.to === '/admin'" @click="closeMenuOnMobile">
           <i :class="item.icon"></i>
           <span>{{ item.name }}</span>
         </router-link>

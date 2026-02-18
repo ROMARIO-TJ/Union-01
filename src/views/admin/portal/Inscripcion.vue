@@ -77,15 +77,19 @@ const handleSubmit = async () => {
       <h2>Inscripción de Jugador</h2>
     </div>
 
-    <div class="admin-table-wrapper" style="max-width: 800px; margin: 0 auto; padding: 2.5rem; background: var(--admin-card); border-radius: 16px;">
+    <div class="admin-table-wrapper"
+      style="max-width: 800px; margin: 0 auto; padding: 2.5rem; background: var(--admin-card); border-radius: 16px;">
       <div v-if="!success">
-        <p style="margin-bottom: 2rem; color: var(--admin-text-light);">Completa el formulario para registrar a tu hijo en el club. Una vez enviado, el staff administrativo revisará la solicitud.</p>
-        
+        <p style="margin-bottom: 2rem; color: var(--admin-text-light);">Completa el formulario para registrar a tu hijo
+          en el club. Una vez enviado, el staff administrativo revisará la solicitud.</p>
+
         <form @submit.prevent="handleSubmit">
-          <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div class="form-grid"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
             <div class="form-group">
               <label>Nombre del Jugador (Hijo/a)</label>
-              <input v-model="formData.playerName" type="text" class="form-control" placeholder="Nombre completo" required>
+              <input v-model="formData.playerName" type="text" class="form-control" placeholder="Nombre completo"
+                required>
             </div>
             <div class="form-group">
               <label>Fecha de Nacimiento</label>
@@ -93,7 +97,8 @@ const handleSubmit = async () => {
             </div>
           </div>
 
-          <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div class="form-grid"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
             <div class="form-group">
               <label>Categoría a Inscribir</label>
               <select v-model="formData.categoryId" class="form-control" required>
@@ -105,13 +110,15 @@ const handleSubmit = async () => {
             </div>
             <div class="form-group">
               <label>Posición Preferida</label>
-              <input v-model="formData.position" type="text" class="form-control" placeholder="Portero, Delantero, etc.">
+              <input v-model="formData.position" type="text" class="form-control"
+                placeholder="Portero, Delantero, etc.">
             </div>
           </div>
 
           <div class="form-group" style="margin-bottom: 1.5rem;">
             <label>Información Médica / Alergias</label>
-            <textarea v-model="formData.medicalInfo" class="form-control" rows="3" placeholder="Indica si tiene alguna condición importante..."></textarea>
+            <textarea v-model="formData.medicalInfo" class="form-control" rows="3"
+              placeholder="Indica si tiene alguna condición importante..."></textarea>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
@@ -124,11 +131,13 @@ const handleSubmit = async () => {
       </div>
 
       <div v-else style="text-align: center; padding: 3rem 0;">
-        <div style="width: 80px; height: 80px; background: #d4edda; color: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin: 0 auto 1.5rem;">
+        <div
+          style="width: 80px; height: 80px; background: #d4edda; color: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin: 0 auto 1.5rem;">
           <i class="fa-solid fa-check"></i>
         </div>
         <h2 style="margin-bottom: 1rem;">¡Inscripción Exitosa!</h2>
-        <p style="color: var(--admin-text-light);">La solicitud ha sido enviada. Serás redirigido al panel principal.</p>
+        <p style="color: var(--admin-text-light);">La solicitud ha sido enviada. Serás redirigido al panel principal.
+        </p>
       </div>
     </div>
   </div>
