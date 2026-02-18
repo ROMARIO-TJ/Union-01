@@ -1,11 +1,15 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useCategoryStore } from '../../store/categoryStore';
+import { useAuthStore } from '../../store/authStore';
 import { useFileUpload } from '../../composables/useFileUpload';
 import HeroEditor from '../../components/admin/HeroEditor.vue';
 
 const categoryStore = useCategoryStore();
+const authStore = useAuthStore();
 const { uploadFile, isUploading } = useFileUpload();
+
+const isFinancialAdmin = computed(() => authStore.user?.role === 'admin_financiero');
 
 const isModalOpen = ref(false);
 const isEditing = ref(false);
@@ -108,12 +112,52 @@ const deleteItem = async (id) => {
         await categoryStore.deleteCategory(id);
     }
 };
+
+// =======================
+// GESTIÓN DE BENEFICIOS
+// =======================
+const isBenefitModalOpen = ref(false);
+const isEditingBenefit = ref(false);
+const currentBenefitId = ref(null);
+const benefitFormData = ref({
+    title: '',
+    description: '',
+    icon: 'fa-solid fa-check'
+});
+
+const openBenefitCreateModal = () => {
+    isEditingBenefit.value = false;
+    benefitFormData.value = { title: '', description: '', icon: 'fa-solid fa-check' };
+    isBenefitModalOpen.value = true;
+};
+
+const openBenefitEditModal = (benefit) => {
+    isEditingBenefit.value = true;
+    currentBenefitId.value = benefit.id;
+    benefitFormData.value = { ...benefit };
+    isBenefitModalOpen.value = true;
+};
+
+const handleBenefitSubmit = async () => {
+    if (isEditingBenefit.value) {
+        await categoryStore.updateBenefit(currentBenefitId.value, benefitFormData.value);
+    } else {
+        await categoryStore.addBenefit(benefitFormData.value);
+    }
+    isBenefitModalOpen.value = false;
+};
+
+const deleteBenefit = async (id) => {
+    if (confirm('¿Estás seguro de eliminar este beneficio?')) {
+        await categoryStore.deleteBenefit(id);
+    }
+};
 </script>
 
 
 <template>
     <div class="category-manager">
-        <HeroEditor pageKey="categoria" />
+        <HeroEditor v-if="!isFinancialAdmin" pageKey="categoria" />
         <div class="admin-toolbar">
             <h2>Gestionar Categorías</h2>
             <button @click="openCreateModal" class="btn-admin btn-admin--primary">
@@ -273,9 +317,10 @@ const deleteItem = async (id) => {
         </div>
 
         <!-- SECCIÓN POR QUÉ ELEGIRNOS -->
-        <div class="admin-toolbar"
-            style="margin-top: 4rem; border-top: 1px solid var(--admin-border); padding-top: 2rem;">
-            <h2>Gestionar "¿Por qué elegirnos?"</h2>
+        <template v-if="!isFinancialAdmin">
+          <div class="admin-toolbar"
+              style="margin-top: 4rem; border-top: 1px solid var(--admin-border); padding-top: 2rem;">
+              <h2>Gestionar "¿Por qué elegirnos?"</h2>
             <button @click="openBenefitCreateModal" class="btn-admin btn-admin--primary">
                 <i class="fa-solid fa-plus"></i> Nuevo Beneficio
             </button>
@@ -341,7 +386,8 @@ const deleteItem = async (id) => {
                 </div>
             </div>
         </div>
-
+    </template>
+        
         <!-- Benefit Modal -->
         <div v-if="isBenefitModalOpen" class="admin-modal-overlay">
             <div class="admin-modal">

@@ -50,6 +50,11 @@ const routes = [
     name: "Partidos",
     component: () => import("../views/Partidos.vue"), // Lazy load
   },
+  {
+    path: "/portal-padres",
+    name: "PortalPadres",
+    component: () => import("../views/PortalPadres.vue"),
+  },
   // ADMIN ROUTES
   {
     path: "/admin/login",
@@ -126,6 +131,44 @@ const routes = [
         name: "AdminModules",
         component: () => import("../views/admin/ModulesManager.vue"),
       },
+      // FINANCIERO ROUTES
+      {
+        path: "financiero/pagos",
+        name: "FinancieroPagos",
+        component: () => import("../views/admin/financiero/Pagos.vue"),
+      },
+      {
+        path: "financiero/paz-y-salvo",
+        name: "FinancieroPazYSalvo",
+        component: () => import("../views/admin/financiero/PazySalvo.vue"),
+      },
+      {
+        path: "financiero/reportes",
+        name: "FinancieroReportes",
+        component: () => import("../views/admin/financiero/Reportes.vue"),
+      },
+      // PORTAL PADRE ROUTES
+      {
+        path: "portal/hijo",
+        name: "PortalHijo",
+        component: () => import("../views/admin/portal/MiHijo.vue"),
+      },
+      {
+        path: "portal/pagos",
+        name: "PortalPagos",
+        component: () => import("../views/admin/financiero/Pagos.vue"), // Placeholder
+      },
+      {
+        path: "portal/paz-y-salvo",
+        name: "PortalPazYSalvo",
+        component: () => import("../views/admin/financiero/PazySalvo.vue"), // Placeholder
+      },
+      {
+        path: "portal/inscripcion",
+        name: "PortalInscripcion",
+        redirect: "/admin/portal/hijo" // MiHijo.vue maneja la inscripción internamente
+      },
+
     ]
   },
   {
@@ -154,14 +197,38 @@ router.beforeEach(async (to, from) => {
 
   // 1. Check authentication
   if (requiresAuth && !authStore.isAuthenticated) {
+    // Si es una ruta del portal de padres, mandar al portal público
+    if (to.path.startsWith('/admin/portal')) {
+      return { name: 'PortalPadres' };
+    }
     return { name: 'AdminLogin' };
   }
 
   if (to.name === 'AdminLogin' && authStore.isAuthenticated) {
+    // Si es padre, mandarlo a su portal
+    if (authStore.user?.role === 'padre_familia') {
+      return { path: '/admin/portal/hijo' };
+    }
     return { name: 'AdminDashboard' };
   }
 
-  // 2. Check module access for non-admin routes
+  // Redirigir padres ya logueados fuera del portal de login
+  if (to.name === 'PortalPadres' && authStore.isAuthenticated) {
+    if (authStore.user?.role === 'padre_familia') {
+      return { path: '/admin/portal/hijo' };
+    }
+    return { name: 'AdminDashboard' };
+  }
+
+  // 3. Proteger rutas admin de padres de familia
+  if (authStore.isAuthenticated && authStore.user?.role === 'padre_familia') {
+    // Si la ruta es administrativa (/admin...) pero NO es del portal, bloquear
+    if (to.path.startsWith('/admin') && !to.path.startsWith('/admin/portal')) {
+      return { path: '/admin/portal/hijo' };
+    }
+  }
+
+  // 4. Check module access for non-admin routes
   if (!to.path.startsWith('/admin')) {
     try {
       // Dynamic import to avoid circular dependency
@@ -176,7 +243,7 @@ router.beforeEach(async (to, from) => {
     }
   }
 
-  // 3. Allow passage
+  // 5. Allow passage
   return true;
 });
 

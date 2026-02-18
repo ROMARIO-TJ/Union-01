@@ -263,6 +263,7 @@ export const useCategoryStore = defineStore('categories', () => {
         benefits,
         isLoading,
         initCategories,
+        fetchCategories: initCategories, // alias
         addCategory,
         updateCategory,
         deleteCategory,

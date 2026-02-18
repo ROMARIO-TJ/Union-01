@@ -1,11 +1,16 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useTheme } from '../composables/useTheme';
 import { useGlobalSettingsStore } from '../store/globalSettingsStore';
+import { useAuthStore } from '../store/authStore';
 
 const isMenuOpen = ref(false);
 const { isDarkMode, toggleDarkMode } = useTheme();
 const globalSettings = useGlobalSettingsStore();
+const authStore = useAuthStore();
+
+const isParentLoggedIn = computed(() => authStore.isAuthenticated && authStore.user?.role === 'padre_familia');
+const parentName = computed(() => authStore.user?.name?.split(' ')[0] || 'Mi Portal');
 
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value;
@@ -51,9 +56,12 @@ const closeMenu = () => {
           </span>
         </button>
 
-        <!-- CTAs -->
-        <router-link to="/categoria" class="btn btn-primary btn-inscribe">
-          Inscripciones
+        <!-- Portal Padres CTA -->
+        <router-link v-if="!isParentLoggedIn" to="/portal-padres" class="btn btn-primary btn-inscribe">
+          <i class="fa-solid fa-user-shield" style="margin-right: 0.4rem;"></i> Portal Padres
+        </router-link>
+        <router-link v-else to="/admin/portal/hijo" class="btn btn-primary btn-inscribe">
+          <i class="fa-solid fa-child" style="margin-right: 0.4rem;"></i> {{ parentName }}
         </router-link>
 
         <!-- HAMBURGER ICON -->

@@ -1,96 +1,60 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useNewsStore } from '../../store/newsStore';
 import { useMatchesStore } from '../../store/matchesStore';
 import { useGalleryStore } from '../../store/galleryStore';
 import { useSponsorsStore } from '../../store/sponsorsStore';
 import { usePlayersStore } from '../../store/playersStore';
 import { useCategoryStore } from '../../store/categoryStore';
-import { useContactStore } from '../../store/contactStore';
+import { useAuthStore } from '../../store/authStore';
 
+const router = useRouter();
 const newsStore = useNewsStore();
 const matchesStore = useMatchesStore();
 const galleryStore = useGalleryStore();
 const sponsorsStore = useSponsorsStore();
 const playersStore = usePlayersStore();
 const categoryStore = useCategoryStore();
-const contactStore = useContactStore();
+const authStore = useAuthStore();
 
-const stats = computed(() => [
-  {
-    name: 'Noticias',
-    value: newsStore.news.length,
-    icon: 'fa-solid fa-newspaper',
-    class: 'news',
-    link: '/admin/news'
-  },
-  {
-    name: 'Partidos',
-    value: matchesStore.matches.length,
-    icon: 'fa-solid fa-futbol',
-    class: 'matches',
-    link: '/admin/matches'
-  },
-  {
-    name: 'Tabla Posiciones',
-    value: 'Gestión',
-    icon: 'fa-solid fa-list-ol',
-    class: 'matches', /* Reusing matches class for color consistency or add custom one */
-    link: '/admin/standings'
-  },
-  {
-    name: 'Jugadores',
-    value: playersStore.players.length,
-    icon: 'fa-solid fa-users',
-    class: 'players',
-    link: '/admin/players'
-  },
-  {
-    name: 'Galería',
-    value: galleryStore.photos.length,
-    icon: 'fa-solid fa-images',
-    class: 'gallery',
-    link: '/admin/gallery'
-  },
-  {
-    name: 'Patrocinadores',
-    value: sponsorsStore.sponsors.length,
-    icon: 'fa-solid fa-handshake',
-    class: 'sponsors',
-    link: '/admin/sponsors'
-  },
-  {
-    name: 'Categorías',
-    value: categoryStore.categories.length,
-    icon: 'fa-solid fa-tags',
-    class: 'categories',
-    link: '/admin/categories'
-  },
-  {
-    name: 'Club',
-    value: 'Gestión',
-    icon: 'fa-solid fa-shield-halved',
-    class: 'club',
-    link: '/admin/club'
-  },
-  {
-    name: 'Contacto',
-    value: 'Gestión',
-    icon: 'fa-solid fa-address-book',
-    class: 'contact',
-    link: '/admin/contact'
-  },
-  {
-    name: 'Footer',
-    value: 'Gestión',
-    icon: 'fa-solid fa-window-maximize',
-    class: 'footer',
-    link: '/admin/footer'
-  },
-]);
+const role = computed(() => authStore.user?.role);
+
+const stats = computed(() => {
+  const items = [];
+
+  // Stats para Admin Contenido
+  if (role.value === 'admin_contenido' || !role.value) {
+    items.push(
+      { name: 'Noticias', value: newsStore.news.length, icon: 'fa-solid fa-newspaper', class: 'news', link: '/admin/news' },
+      { name: 'Partidos', value: matchesStore.matches.length, icon: 'fa-solid fa-futbol', class: 'matches', link: '/admin/matches' },
+      { name: 'Categorías', value: categoryStore.categories.length, icon: 'fa-solid fa-tags', class: 'categories', link: '/admin/categories' }
+    );
+  }
+
+  // Stats para Admin Financiero
+  if (role.value === 'admin_financiero') {
+    items.push(
+      { name: 'Pagos Mes', value: '$2,5M', icon: 'fa-solid fa-dollar-sign', class: 'news', link: '/admin/financiero/pagos' },
+      { name: 'Pendientes', value: '12', icon: 'fa-solid fa-clock', class: 'club', link: '/admin/financiero/pagos' },
+      { name: 'Pas y Salvos', value: '5', icon: 'fa-solid fa-file-circle-check', class: 'matches', link: '/admin/financiero/paz-y-salvo' },
+      { name: 'Jugadores', value: playersStore.players.length, icon: 'fa-solid fa-users', class: 'players', link: '/admin/players' },
+      { name: 'Categorías', value: categoryStore.categories.length, icon: 'fa-solid fa-tags', class: 'categories', link: '/admin/categories' }
+    );
+  }
+
+  return items;
+});
 
 const latestNews = computed(() => newsStore.getLatestNews(5));
 const upcomingMatches = computed(() => matchesStore.getUpcomingMatches().slice(0, 5));
+
+// Redirigir padres directamente a su portal
+onMounted(() => {
+  if (role.value === 'padre_familia') {
+    router.replace('/admin/portal/hijo');
+  }
+});
 </script>
 
 <template>
@@ -108,7 +72,8 @@ const upcomingMatches = computed(() => matchesStore.getUpcomingMatches().slice(0
       </router-link>
     </div>
 
-    <div class="dashboard-secondary-grid">
+
+    <div v-if="role === 'admin_contenido'" class="dashboard-secondary-grid">
       <!-- Ultimas Noticias -->
       <div class="admin-table-wrapper">
         <div class="admin-modal-header"
