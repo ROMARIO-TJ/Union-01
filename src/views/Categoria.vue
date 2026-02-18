@@ -6,32 +6,42 @@
         <!-- CATEGORIAS SECTION -->
         <section class="categorias-section">
             <div class="container">
-                <div class="categorias-grid">
-                    <div v-for="categoria in orderedCategories" :key="categoria.id" class="categoria-card">
-                        <div class="categoria-icon-wrapper">
-                            <i :class="categoria.icon"></i>
-                        </div>
+                <div class="section-header-carousel mb-8">
+                    <div>
+                        <h2 class="section-title">Nuestras <span class="text-accent">Categorías</span></h2>
+                    </div>
+                    <div class="carousel-nav-btns">
+                        <button @click="scrollCatLeft" class="nav-control-btn">
+                            <span class="material-symbols-outlined">chevron_left</span>
+                        </button>
+                        <button @click="scrollCatRight" class="nav-control-btn">
+                            <span class="material-symbols-outlined">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
 
-                        <h3 class="categoria-name">{{ categoria.name }}</h3>
-                        <p class="categoria-age">{{ categoria.age }}</p>
+                <div class="categorias-carousel-wrapper no-scrollbar" ref="catCarousel">
+                    <div v-for="categoria in orderedCategories" :key="categoria.id" class="categoria-card-mini">
+                        <h3 class="categoria-name-mini">{{ categoria.name }}</h3>
+                        <p class="categoria-age-mini">{{ categoria.age }}</p>
 
-                        <div class="categoria-info">
-                            <div class="info-item">
+                        <div class="categoria-info-mini">
+                            <div class="info-item-mini">
                                 <i class="fa-solid fa-calendar-days"></i>
                                 <span>{{ categoria.schedule }}</span>
                             </div>
-                            <div class="info-item">
+                            <div class="info-item-mini">
                                 <i class="fa-solid fa-clock"></i>
                                 <span>{{ categoria.time }}</span>
                             </div>
-                            <div class="info-item">
+                            <div class="info-item-mini">
                                 <i class="fa-solid fa-user-tie"></i>
                                 <span>{{ categoria.coach }}</span>
                             </div>
                         </div>
 
                         <router-link :to="{ name: 'Inscripcion', query: { categoria: categoria.name } }"
-                            class="btn-inscribir">
+                            class="btn-inscribir-mini">
                             Inscribirse
                             <i class="fa-solid fa-arrow-right"></i>
                         </router-link>
@@ -45,7 +55,7 @@
             <div class="container">
                 <div class="info-content">
                     <h2 class="section-title text-center">¿Por qué elegir <span class="text-accent">Unión
-                            Jeguera</span>?</h2>
+                            Jaguera</span>?</h2>
                     <div class="benefits-grid">
                         <div v-for="benefit in categoryStore.benefits" :key="benefit.id" class="benefit-item">
                             <i :class="benefit.icon"></i>
@@ -62,7 +72,8 @@
             <div class="container">
                 <h2 class="section-title text-center">Nuestros <span class="text-accent">Equipos</span></h2>
                 <div class="gallery-grid">
-                    <div v-for="categoria in orderedCategories" :key="`img-${categoria.id}`" class="gallery-item">
+                    <div v-for="categoria in orderedCategories" :key="`img-${categoria.id}`" class="gallery-item"
+                        @click="openLightbox(categoria)">
                         <div v-if="categoria.teamImage" class="img-wrapper">
                             <img :src="categoria.teamImage" :alt="categoria.name">
                             <div class="img-overlay">
@@ -82,8 +93,10 @@
         <!-- LIGHTBOX MODAL -->
         <transition name="fade">
             <div v-if="lightboxOpen" class="lightbox" @click.self="closeLightbox">
-                <button class="close-btn" @click="closeLightbox">
-                    <i class="fa-solid fa-xmark"></i>
+                <button class="close-btn" @click="closeLightbox" aria-label="Cerrar">
+                    <svg viewBox="0 0 24 24" fill="none" class="close-icon-svg" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
                 </button>
                 <div class="lightbox-content">
                     <img :src="selectedTeam?.teamImage" :alt="selectedTeam?.name">
@@ -108,33 +121,31 @@ import clubHeroImg from '../assets/img/heroes/club_hero.png';
 const categoryStore = useCategoryStore();
 const lightboxOpen = ref(false);
 const selectedTeam = ref(null);
+const catCarousel = ref(null);
 
-// =======================
-// ORDEN AUTOMÁTICO CATEGORÍAS (FRONTEND)
-// =======================
+const scrollCatLeft = () => {
+    if (catCarousel.value) {
+        catCarousel.value.scrollBy({ left: -320, behavior: 'smooth' });
+    }
+};
+
+const scrollCatRight = () => {
+    if (catCarousel.value) {
+        catCarousel.value.scrollBy({ left: 320, behavior: 'smooth' });
+    }
+};
+
 const orderedCategories = computed(() => {
     if (!categoryStore.categories) return [];
-
     const orderValue = (name) => {
         const n = name.toLowerCase();
-
-        // 1️⃣ Escuela de formación
         if (n.includes('escuela')) return 0;
-
-        // 2️⃣ Sub categorías (Sub-13, Sub-15...)
         const sub = n.match(/sub[\s-]*(\d+)/);
         if (sub) return 100 + parseInt(sub[1]);
-
-        // 3️⃣ Primera
         if (n.includes('primera')) return 300;
-
-        // 4️⃣ Otras
         return 999;
     };
-
-    return [...categoryStore.categories].sort(
-        (a, b) => orderValue(a.name) - orderValue(b.name)
-    );
+    return [...categoryStore.categories].sort((a, b) => orderValue(a.name) - orderValue(b.name));
 });
 
 const openLightbox = (team) => {
@@ -151,9 +162,11 @@ const closeLightbox = () => {
 };
 </script>
 
-
 <style scoped>
-/* CONTAINER */
+.categorias-page {
+    background-color: var(--bg-primary);
+}
+
 .container {
     width: 100%;
     max-width: 1200px;
@@ -161,238 +174,280 @@ const closeLightbox = () => {
     padding: 0 1.5rem;
 }
 
-
-.hero-title {
-    font-size: 4rem;
-    font-weight: 900;
-    margin-bottom: 1rem;
-    text-transform: uppercase;
-    letter-spacing: -1px;
-    line-height: 1;
-    text-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-    opacity: 0;
-    animation: fadeInUp 0.8s ease-out 0.4s forwards;
-}
-
-.hero-tagline {
-    font-size: 1.5rem;
-    font-weight: 300;
-    opacity: 0;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    animation: fadeInUp 0.8s ease-out 0.7s forwards;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-
-    to {
-        opacity: 0.9;
-        transform: translateY(0);
-    }
-}
-
 /* CATEGORIAS SECTION */
 .categorias-section {
-    padding: 5rem 0;
+    padding: 6rem 0;
     background-color: var(--bg-primary);
 }
 
-/* CATEGORIAS GRID */
-.categorias-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
-    gap: 2rem;
-    padding: 1rem 0;
+.section-header-carousel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
 }
 
-/* CATEGORIA CARD */
-.categoria-card {
+.carousel-nav-btns {
+    display: flex;
+    gap: 1rem;
+}
+
+.nav-control-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 0;
+    border: 1px solid rgba(17, 212, 66, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    background: var(--card-bg);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-control-btn::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--accent-color);
+    transition: width 0.3s ease;
+}
+
+.nav-control-btn:hover::after {
+    width: 100%;
+}
+
+.nav-control-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.categorias-carousel-wrapper {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding: 1rem 0 2rem;
+    scroll-snap-type: x mandatory;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* CATEGORIA CARD MINI */
+.categoria-card-mini {
+    flex: 0 0 280px;
     background-color: var(--card-bg);
-    padding: 2.8rem 2rem;
-    border-radius: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 2.5rem 2rem;
+    border-radius: 0;
+    border: 1px solid rgba(17, 212, 66, 0.05);
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     transition: all 0.4s ease;
-    height: 100%;
+    scroll-snap-align: start;
+    position: relative;
 }
 
-:root.dark .categoria-card {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-}
-
-.categoria-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+.categoria-card-mini:hover {
     border-color: var(--accent-color);
+    box-shadow: 0 0 20px rgba(17, 212, 66, 0.15);
+    transform: translateY(-5px);
 }
 
-.categoria-icon-wrapper {
-    width: 85px;
-    height: 85px;
-    background: linear-gradient(135deg, rgba(31, 167, 116, 0.1) 0%, rgba(31, 167, 116, 0.05) 100%);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.4rem;
-    color: var(--accent-color);
-    margin-bottom: 1.8rem;
-    transition: all 0.3s ease;
-}
-
-.categoria-card:hover .categoria-icon-wrapper {
-    background: var(--accent-color);
-    color: #fff;
-    transform: rotate(5deg) scale(1.1);
-}
-
-.categoria-name {
-    font-size: 1.6rem;
-    font-weight: 800;
+.categoria-name-mini {
+    font-size: 1.4rem;
+    font-weight: 900;
     color: var(--text-primary);
     margin-bottom: 0.5rem;
-}
-
-.categoria-age {
-    font-size: 1rem;
-    color: var(--accent-color);
-    font-weight: 700;
-    margin-bottom: 1.8rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: -0.5px;
 }
 
-.categoria-info {
+.categoria-age-mini {
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.categoria-info-mini {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
-    margin-bottom: 2.2rem;
-    padding: 1.8rem 0;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    gap: 0.8rem;
+    margin-bottom: 2rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid rgba(17, 212, 66, 0.1);
+    border-bottom: 1px solid rgba(17, 212, 66, 0.1);
 }
 
-:root.dark .categoria-info {
-    border-color: rgba(255, 255, 255, 0.1);
-}
-
-.info-item {
+.info-item-mini {
     display: flex;
     align-items: center;
     gap: 1rem;
     color: var(--text-secondary);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
 }
 
-.info-item i {
+.categoria-card-mini:hover .info-item-mini {
+    color: var(--text-primary);
+}
+
+.info-item-mini i {
     color: var(--accent-color);
-    width: 20px;
-    font-size: 1.1rem;
+    width: 18px;
+    font-size: 1rem;
 }
 
-.btn-inscribir {
-    background: var(--accent-color);
-    color: #fff !important;
-    padding: 0.9rem 2.2rem;
-    border-radius: 50px;
+/* Elegant Button Transition */
+.btn-inscribir-mini {
+    background: transparent;
+    color: var(--text-primary) !important;
+    padding: 0.9rem 2rem;
+    border-radius: 0;
     text-decoration: none;
-    font-weight: 700;
+    font-weight: 900;
+    font-size: 0.9rem;
     display: inline-flex;
     align-items: center;
     gap: 0.8rem;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
     width: 100%;
     justify-content: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 1px solid rgba(17, 212, 66, 0.3);
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
 }
 
-.btn-inscribir:hover {
-    background: #158f61;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(31, 167, 116, 0.4);
+.btn-inscribir-mini::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    z-index: -1;
+}
+
+.btn-inscribir-mini:hover {
+    color: #102215 !important;
+    border-color: var(--accent-color);
+    gap: 1.2rem;
+}
+
+.btn-inscribir-mini:hover::before {
+    width: 100%;
 }
 
 /* INFO SECTION */
 .info-section {
-    padding: 5rem 0;
-    background: var(--bg-secondary);
+    padding: 6rem 0;
+    background: radial-gradient(circle at center, rgba(17, 212, 66, 0.08) 0%, #f8faf8 80%);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
 }
 
-.text-center {
-    text-align: center;
+:root.dark .info-section {
+    background: radial-gradient(circle at center, rgba(17, 212, 66, 0.15) 0%, #000000 80%);
+    color: #ffffff;
 }
 
 .benefits-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 3rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
     margin-top: 3rem;
 }
 
 .benefit-item {
-    text-align: center;
-    padding: 1rem;
+    text-align: left;
+    padding: 2.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid rgba(17, 212, 66, 0.1);
+    transition: all 0.4s ease;
+}
+
+:root.dark .benefit-item {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.benefit-item:hover {
+    background: rgba(17, 212, 66, 0.05);
+    border-color: var(--accent-color);
+    transform: translateY(-5px);
 }
 
 .benefit-item i {
-    font-size: 3.2rem;
+    font-size: 2.5rem;
     color: var(--accent-color);
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    display: block;
 }
 
 .benefit-item h4 {
-    font-size: 1.4rem;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: 900;
     margin-bottom: 1rem;
     color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+:root.dark .benefit-item h4 {
+    color: #ffffff;
 }
 
 .benefit-item p {
     color: var(--text-secondary);
-    line-height: 1.7;
+    line-height: 1.8;
+    font-size: 0.9rem;
 }
 
-/* RESPONSIVE */
-/* TEAMS GALLERY */
+:root.dark .benefit-item p {
+    color: #94a3b8;
+}
+
+/* TEAMS GALLERY SECTION */
 .teams-gallery {
-    padding: 5rem 0;
+    padding: 6rem 0;
     background: var(--bg-primary);
 }
 
 .gallery-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
+    gap: 1rem;
     margin-top: 3rem;
 }
 
 .gallery-item {
     position: relative;
-    border-radius: 20px;
     overflow: hidden;
-    height: 250px;
+    height: 300px;
     cursor: pointer;
-    background: var(--card-bg);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: #000;
+    transition: all 0.5s ease;
+}
+
+.gallery-item:hover {
+    transform: scale(0.97);
 }
 
 .img-wrapper {
@@ -404,7 +459,7 @@ const closeLightbox = () => {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.5s ease;
+    transition: transform 0.8s ease;
 }
 
 .gallery-item:hover img {
@@ -413,18 +468,15 @@ const closeLightbox = () => {
 
 .img-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     align-items: center;
-    padding-bottom: 1.5rem;
+    padding-bottom: 2rem;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
     color: #fff;
 }
 
@@ -433,15 +485,15 @@ const closeLightbox = () => {
 }
 
 .img-overlay i {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
 }
 
 .img-overlay span {
-    font-weight: 600;
-    letter-spacing: 1px;
+    font-weight: 900;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    font-size: 0.9rem;
+    font-size: 1rem;
 }
 
 .img-placeholder {
@@ -452,8 +504,7 @@ const closeLightbox = () => {
     align-items: center;
     justify-content: center;
     gap: 1rem;
-    color: var(--text-secondary);
-    opacity: 0.6;
+    color: #475569;
 }
 
 .img-placeholder i {
@@ -463,70 +514,97 @@ const closeLightbox = () => {
 /* LIGHTBOX */
 .lightbox {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.9);
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.95);
     z-index: 2000;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 2rem;
+    overflow-y: auto;
+    cursor: zoom-out;
 }
 
 .close-btn {
-    position: absolute;
+    position: fixed;
     top: 2rem;
     right: 2rem;
     background: none;
     border: none;
-    color: #fff;
-    font-size: 2.5rem;
     cursor: pointer;
     z-index: 2010;
-    transition: transform 0.3s ease;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.close-icon-svg {
+    width: 100%;
+    height: 100%;
+    stroke: rgba(255, 255, 255, 0.4);
+    stroke-width: 1px;
+    /* Ultra thin */
+    transition: stroke 0.3s ease;
 }
 
 .close-btn:hover {
-    transform: scale(1.1) rotate(90deg);
+    transform: rotate(90deg);
+}
+
+.close-btn:hover .close-icon-svg {
+    stroke: #fff;
 }
 
 .lightbox-content {
     max-width: 1000px;
     width: 100%;
+    margin: auto;
     position: relative;
-    animation: zoomIn 0.3s ease-out;
+    animation: zoomIn 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    cursor: default;
 }
 
 .lightbox-content img {
     width: 100%;
-    max-height: 80vh;
+    max-height: 70vh;
     object-fit: contain;
-    border-radius: 10px;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+    display: block;
 }
 
 .lightbox-info {
     color: #fff;
     text-align: center;
     margin-top: 1.5rem;
+    padding-bottom: 2rem;
 }
 
 .lightbox-info h3 {
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
+    font-size: 2rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -1px;
+    margin-bottom: 0.25rem;
+    color: var(--primary-color);
 }
 
 .lightbox-info p {
     font-size: 1.1rem;
-    opacity: 0.8;
+    color: #e2e8f0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 /* TRANSITIONS */
 .fade-enter-active,
 .fade-leave-active {
-    transition: opacity 0.4s ease;
+    transition: opacity 0.5s ease;
 }
 
 .fade-enter-from,
@@ -537,7 +615,7 @@ const closeLightbox = () => {
 @keyframes zoomIn {
     from {
         opacity: 0;
-        transform: scale(0.9);
+        transform: scale(0.95);
     }
 
     to {
@@ -546,49 +624,13 @@ const closeLightbox = () => {
     }
 }
 
-@media (max-width: 1150px) {
-    .carousel-controls {
-        left: 10px;
-        right: 10px;
-    }
-
-    .nav-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
-    }
-}
-
-@media (max-width: 1024px) {
-    .categoria-card {
-        flex: 0 0 300px;
-        min-width: 300px;
-    }
-
-    .carousel-controls {
-        display: none;
-        /* Swipe is standard on mobile */
-    }
-}
-
 @media (max-width: 768px) {
-    .hero-title {
+    .section-title {
         font-size: 2.5rem;
     }
 
-    .section-title {
-        font-size: 2rem;
-    }
-
-    .categoria-card {
-        flex: 0 0 280px;
-        min-width: 280px;
-        padding: 2.2rem 1.5rem;
-    }
-
-    .categorias-carousel {
-        padding-left: 1rem;
-        padding-right: 1rem;
+    .categoria-card-mini {
+        flex: 0 0 300px;
     }
 }
 </style>

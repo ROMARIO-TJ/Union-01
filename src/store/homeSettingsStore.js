@@ -7,37 +7,37 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         heroCarousel: {
             enabled: true,
             label: 'Carrusel Principal',
-            icon: 'fa-solid fa-images',
+            icon: 'images',
             description: 'Carrusel de cabecera en el Inicio'
         },
         heroMatchSlide: {
             enabled: true,
             label: 'Slide - Próximo Partido',
-            icon: 'fa-solid fa-trophy',
+            icon: 'trophy',
             description: 'Muestra el próximo partido en el carrusel'
         },
         matchCenter: {
             enabled: true,
             label: 'Próximos Encuentros',
-            icon: 'fa-solid fa-futbol',
+            icon: 'sports_soccer',
             description: 'Muestra el carrusel de próximos partidos'
         },
         latestNews: {
             enabled: true,
             label: 'Actualidad del Club',
-            icon: 'fa-solid fa-newspaper',
+            icon: 'newspaper',
             description: 'Muestra las últimas noticias'
         },
         categories: {
             enabled: true,
             label: 'Nuestras Categorías',
-            icon: 'fa-solid fa-users',
+            icon: 'groups',
             description: 'Muestra vista previa de categorías'
         },
         sponsors: {
             enabled: true,
             label: 'Patrocinadores',
-            icon: 'fa-solid fa-handshake',
+            icon: 'handshake',
             description: 'Muestra el carrusel de patrocinadores'
         }
     });
@@ -77,19 +77,19 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
             id: 1,
             title: 'Comunidad',
             description: 'Somos más que un equipo, somos una familia unida por los mismos colores.',
-            icon: 'fa-solid fa-users'
+            icon: 'groups'
         },
         {
             id: 2,
             title: 'Formación',
             description: 'Trabajamos día a día para potenciar el talento joven y formar deportistas integrales.',
-            icon: 'fa-solid fa-futbol'
+            icon: 'sports_soccer'
         },
         {
             id: 3,
             title: 'Pasión',
             description: 'Dejamos todo en la cancha. La garra y el corazón son nuestro sello de identidad.',
-            icon: 'fa-solid fa-fire'
+            icon: 'whatshot'
         }
     ];
 
@@ -136,31 +136,75 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
 
         const savedSettings = localStorage.getItem('union_home_settings_v3');
         if (savedSettings) {
+            const sanitizeIcon = (icon) => {
+                if (!icon) return 'star';
+                return icon.replace(/fa-solid /g, '')
+                    .replace(/fa- /g, '')
+                    .replace(/fa-/g, '')
+                    .replace(/users/g, 'groups')
+                    .replace(/futbol/g, 'sports_soccer')
+                    .replace(/fire/g, 'whatshot')
+                    .replace(/check/g, 'verified')
+                    .replace(/star/g, 'grade')
+                    .replace(/trophy/g, 'emoji_events')
+                    .replace(/newspaper/g, 'newspaper')
+                    .replace(/handshake/g, 'handshake')
+                    .replace(/images/g, 'images');
+            };
+
             const parsed = JSON.parse(savedSettings);
             if (parsed.sections) {
                 Object.keys(sections.value).forEach(key => {
                     if (parsed.sections[key] !== undefined) {
                         sections.value[key].enabled = parsed.sections[key].enabled;
+                        if (parsed.sections[key].icon) {
+                            sections.value[key].icon = sanitizeIcon(parsed.sections[key].icon);
+                        }
                     }
                 });
             }
             heroSlides.value = parsed.heroSlides || initialSlides;
-            philosophy.value = parsed.philosophy || initialPhilosophy;
+            philosophy.value = (parsed.philosophy || initialPhilosophy).map(p => ({
+                ...p,
+                icon: sanitizeIcon(p.icon)
+            }));
             pageHeroes.value = parsed.pageHeroes || initialPageHeroes;
         }
 
         try {
             const data = await apiService.request('settings', 'GET', { key: 'home_settings' });
             if (data && typeof data === 'object') {
+                const sanitizeIcon = (icon) => {
+                    if (!icon) return 'star';
+                    return icon.replace(/fa-solid /g, '')
+                        .replace(/fa- /g, '')
+                        .replace(/fa-/g, '')
+                        .replace(/users/g, 'groups')
+                        .replace(/futbol/g, 'sports_soccer')
+                        .replace(/fire/g, 'whatshot')
+                        .replace(/check/g, 'verified')
+                        .replace(/star/g, 'grade')
+                        .replace(/trophy/g, 'emoji_events')
+                        .replace(/newspaper/g, 'newspaper')
+                        .replace(/handshake/g, 'handshake')
+                        .replace(/images/g, 'images');
+                };
+
                 if (data.sections) {
                     Object.keys(sections.value).forEach(key => {
                         if (data.sections[key] !== undefined) {
                             sections.value[key].enabled = data.sections[key].enabled;
+                            if (data.sections[key].icon) {
+                                sections.value[key].icon = sanitizeIcon(data.sections[key].icon);
+                            }
                         }
                     });
                 }
                 heroSlides.value = data.heroSlides || initialSlides;
-                philosophy.value = data.philosophy || initialPhilosophy;
+                philosophy.value = (data.philosophy || initialPhilosophy).map(p => ({
+                    ...p,
+                    icon: sanitizeIcon(p.icon)
+                }));
                 pageHeroes.value = data.pageHeroes || initialPageHeroes;
                 saveToLocalStorage();
             }

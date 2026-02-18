@@ -36,7 +36,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
             label: 'Partidos',
             icon: 'fa-solid fa-futbol',
             description: 'Controla todo lo relacionado con partidos',
-            affects: ['Hero Slide', 'Sección Match Center', 'Página /partidos'],
+            affects: ['Hero Slide', 'Centro de Partidos', 'Página /partidos'],
             routes: ['/partidos'],
             alwaysActive: false
         },

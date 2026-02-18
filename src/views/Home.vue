@@ -4,17 +4,17 @@ import { useNewsStore } from '../store/newsStore';
 import { useMatchesStore } from '../store/matchesStore';
 import { useSponsorsStore } from '../store/sponsorsStore';
 import { useCategoryStore } from '../store/categoryStore';
+import { usePlayersStore } from '../store/playersStore';
 import { useGlobalSettingsStore } from '../store/globalSettingsStore';
 import { useHomeSettingsStore } from '../store/homeSettingsStore';
 import HomeHero from '../components/HomeHero.vue';
 import SponsorsCarousel from '../components/SponsorsCarousel.vue';
 
-
-
 const newsStore = useNewsStore();
 const matchesStore = useMatchesStore();
 const sponsorsStore = useSponsorsStore();
 const categoryStore = useCategoryStore();
+const playersStore = usePlayersStore();
 const globalSettings = useGlobalSettingsStore();
 const homeSettings = useHomeSettingsStore();
 
@@ -26,14 +26,10 @@ const orderedCategories = computed(() => {
 
   const orderValue = (name) => {
     const n = name.toLowerCase();
-
     if (n.includes('escuela')) return 0;
-
     const sub = n.match(/sub[\s-]*(\d+)/);
     if (sub) return 100 + parseInt(sub[1]);
-
     if (n.includes('primera')) return 300;
-
     return 999;
   };
 
@@ -41,13 +37,6 @@ const orderedCategories = computed(() => {
     (a, b) => orderValue(a.name) - orderValue(b.name)
   );
 });
-
-// SOLO LAS 4 PRIMERAS (YA ORDENADAS)
-const previewCategories = computed(() =>
-  orderedCategories.value.slice(0, 4)
-);
-
-
 
 const latestNews = newsStore.getLatestNews(3);
 const upcomingMatches = matchesStore.getUpcomingMatches();
@@ -74,7 +63,7 @@ onMounted(() => {
   observer = new IntersectionObserver(([entry]) => {
     if (entry.isIntersecting) {
       isValuesVisible.value = true;
-      observer.unobserve(entry.target); // Only animate once
+      observer.unobserve(entry.target);
     }
   }, {
     threshold: 0.2
@@ -97,47 +86,131 @@ onUnmounted(() => {
 
     <!-- MATCH CENTER SECTION -->
     <section v-if="globalSettings.modules.matches.enabled && homeSettings.sections.matchCenter.enabled"
-      class="match-center">
+      class="match-center-section py-24">
       <div class="container">
-        <div class="match-center__header">
-          <h2 class="section-title">Próximos <span class="text-accent">Encuentros</span></h2>
-          <div class="carousel-controls">
-            <router-link to="/partidos" class="view-all-link" style="margin-right: 1.5rem">Ver Calendario <i
-                class="fa-solid fa-arrow-right"></i></router-link>
-            <button @click="scrollLeft" class="nav-btn prev-btn"><i class="fa-solid fa-chevron-left"></i></button>
-            <button @click="scrollRight" class="nav-btn next-btn"><i class="fa-solid fa-chevron-right"></i></button>
+        <div class="section-header mb-12 flex justify-between items-end">
+          <div>
+            <span class="text-primary font-bold tracking-widest uppercase text-xs">Próximos Encuentros</span>
+            <h2 class="section-title mt-2">Centro de <span class="text-primary italic">Partidos</span></h2>
+          </div>
+          <div class="carousel-controls flex gap-4">
+            <button @click="scrollLeft" class="control-btn"><span
+                class="material-symbols-outlined">chevron_left</span></button>
+            <button @click="scrollRight" class="control-btn"><span
+                class="material-symbols-outlined">chevron_right</span></button>
           </div>
         </div>
 
-        <div class="matches-carousel" ref="carousel">
-          <div v-for="match in upcomingMatches" :key="match.id" class="match-card">
-            <span class="match-category">{{ match.category }}</span>
-
-            <div class="match-content">
-              <!-- HOME TEAM -->
-              <div class="team team--home">
-                <img src="../assets/img/logosinfondo.png" alt="Unión Jeguera" class="team__logo" />
-                <span class="team__name">{{ match.homeTeam }}</span>
+        <div class="matches-carousel no-scrollbar" ref="carousel">
+          <div v-for="match in upcomingMatches" :key="match.id" class="match-card-modern">
+            <div class="match-card-inner">
+              <div class="match-top">
+                <span class="match-cat">{{ match.category }}</span>
+                <span class="match-date-badge">{{ match.date }} - {{ match.time }}</span>
               </div>
 
-              <!-- VS INFO -->
-              <div class="match-info">
-                <div class="vs-badge">VS
+              <div class="teams-grid">
+                <div class="team-v">
+                  <div class="team-logo-box">
+                    <img src="../assets/img/logosinfondo.png" alt="Unión Jaguera" />
+                  </div>
+                  <span class="team-n">{{ match.homeTeam }}</span>
                 </div>
-                <div class="match-details">
-                  <span class="match-date">{{ match.date }}</span>
-                  <span class="match-time">{{ match.time }}</span>
-                  <span class="match-stadium">{{ match.stadium }}</span>
+
+                <div class="vs-v">
+                  <span class="vs-txt">VS</span>
+                </div>
+
+                <div class="team-v">
+                  <div class="team-logo-box bg-slate-100 dark:bg-slate-800">
+                    <span class="material-symbols-outlined text-slate-400">shield</span>
+                  </div>
+                  <span class="team-n">{{ match.awayTeam }}</span>
                 </div>
               </div>
 
-              <!-- AWAY TEAM -->
-              <div class="team team--away">
-                <!-- Placeholder logo for rival -->
-                <div class="team__logo placeholder-logo">
-                  <i class="fa-solid fa-shield-halved"></i>
+              <div class="match-bottom">
+                <span class="stadium-txt"><span class="material-symbols-outlined text-xs">location_on</span> {{
+                  match.stadium }}</span>
+                <router-link to="/partidos" class="btn-more">Detalles <span
+                    class="material-symbols-outlined">north_east</span></router-link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CATEGORÍAS SHOWCASE (ESTILO ANTERIOR MEJORADO) -->
+    <section v-if="globalSettings.modules.categories.enabled && homeSettings.sections.categories.enabled"
+      class="categories-showcase-section py-24 bg-secondary">
+      <div class="container">
+        <div class="showcase-wrapper">
+          <div class="showcase-content">
+            <h2 class="section-title mt-2">Formando el <span class="text-primary italic">Futuro</span></h2>
+            <p class="mt-6 text-slate-500 leading-relaxed text-lg">
+              Contamos con una estructura sólida de categorías que abarcan todas las edades, desde la iniciación
+              deportiva hasta la alta competencia. Nuestro compromiso es la formación integral de cada deportista que
+              viste nuestros colores.
+            </p>
+
+            <div class="mt-10">
+              <router-link to="/categoria" class="btn btn-primary btn-hero-lg">Ver todas las categorías <span
+                  class="material-symbols-outlined">arrow_forward</span></router-link>
+            </div>
+          </div>
+
+          <div class="showcase-visual">
+            <div class="main-image-box logo-showcase-bg">
+              <img src="../assets/img/logosinfondo.png" alt="Unión Jaguera" class="showcase-logo-img">
+              <div class="glass-stats-card">
+                <div class="stat-item">
+                  <span class="stat-num">{{ categoryStore.categories.length }}</span>
+                  <span class="stat-label">Categorías</span>
                 </div>
-                <span class="team__name">{{ match.awayTeam }}</span>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                  <span class="stat-num">{{ playersStore.players.length }}</span>
+                  <span class="stat-label">Jugadores</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PHILOSOPHY SECTION -->
+    <section class="philosophy-section py-24 overflow-hidden" ref="valuesSection"
+      :class="{ 'is-visible': isValuesVisible }">
+      <div class="container">
+        <div class="philosophy-grid">
+          <div class="philosophy-content reveal-left">
+            <span class="text-primary font-bold tracking-widest uppercase text-xs">Formación Integral</span>
+            <h2 class="section-title mt-2">Nuestra <span class="text-primary italic">Filosofía</span></h2>
+            <p class="mt-6 text-slate-500 leading-relaxed">
+              En Unión Jaguera, creemos que el éxito en el campo comienza con la integridad fuera de él. Nuestra
+              metodología se centra en el desarrollo de habilidades técnicas, tácticas y, lo más importante, humanas.
+            </p>
+
+            <div class="phil-values mt-8">
+              <div v-for="(item, index) in homeSettings.philosophy" :key="item.id" class="phil-item"
+                :style="{ transitionDelay: `${0.2 + (index * 0.1)}s` }">
+                <div>
+                  <h4 class="font-bold text-lg">{{ item.title }}</h4>
+                  <p class="text-slate-500 text-sm">{{ item.description }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="philosophy-image relative reveal-right">
+            <div class="image-stack-small logo-bg-philosophy">
+              <img src="../assets/img/logosinfondo.png" alt="Logo Unión Jaguera" class="philosophy-logo-img">
+              <div class="floating-badge-v2 glass-effect">
+                <span class="text-primary text-2xl font-black italic">10+</span>
+                <span class="text-[0.6rem] uppercase font-bold tracking-tighter text-slate-400">Años de
+                  Excelencia</span>
               </div>
             </div>
           </div>
@@ -146,68 +219,32 @@ onUnmounted(() => {
     </section>
 
     <!-- LATEST NEWS SECTION -->
-    <section v-if="globalSettings.modules.news.enabled && homeSettings.sections.latestNews.enabled" class="latest-news">
+    <section v-if="globalSettings.modules.news.enabled && homeSettings.sections.latestNews.enabled"
+      class="latest-news py-24 bg-secondary">
       <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Actualidad del <span class="text-accent">Club</span></h2>
-          <router-link to="/noticias" class="view-all-link">Ver todas <i
-              class="fa-solid fa-arrow-right"></i></router-link>
+        <div class="section-header flex justify-between items-end mb-12">
+          <div>
+            <span class="text-primary font-bold tracking-widest uppercase text-xs">Actualidad</span>
+            <h2 class="section-title mt-2">Últimas <span class="text-primary italic">Noticias</span></h2>
+          </div>
+          <router-link to="/noticias" class="view-all-link">Todas las noticias <span
+              class="material-symbols-outlined">east</span></router-link>
         </div>
 
         <div class="news-grid">
-          <article v-for="article in latestNews" :key="article.id" class="news-card">
-            <div class="news-card__image">
+          <article v-for="article in latestNews" :key="article.id" class="news-card-modern group">
+            <div class="news-img">
               <img :src="article.image" :alt="article.title">
-              <div class="news-date">{{ article.date }}</div>
+              <span class="news-cat-tag">Club</span>
             </div>
-            <div class="news-card__content">
-              <h3 class="news-title">{{ article.title }}</h3>
-              <p class="news-excerpt">{{ article.excerpt }}</p>
-              <router-link :to="`/noticias/${article.id}`" class="read-more">Leer más</router-link>
+            <div class="news-body">
+              <span class="news-date-txt">{{ article.date }}</span>
+              <h3 class="news-title-txt group-hover:text-primary transition-colors">{{ article.title }}</h3>
+              <p class="news-excerpt-txt">{{ article.excerpt }}</p>
+              <router-link :to="`/noticias/${article.id}`" class="news-link">Leer más <span
+                  class="material-symbols-outlined">arrow_right_alt</span></router-link>
             </div>
           </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- CATEGORIES PREVIEW SECTION -->
-    <section v-if="globalSettings.modules.categories.enabled && homeSettings.sections.categories.enabled"
-      class="categories-preview">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Nuestras <span class="text-accent">Categorías</span></h2>
-          <router-link to="/categoria" class="view-all-link">Ver todas <i
-              class="fa-solid fa-arrow-right"></i></router-link>
-        </div>
-
-        <div class="categories-preview-grid">
-          <div v-for="categoria in previewCategories" :key="categoria.id" class="category-preview-card">
-            <div class="category-preview-icon">
-              <i :class="categoria.icon"></i>
-            </div>
-            <h3>{{ categoria.name }}</h3>
-            <p>{{ categoria.age }}</p>
-            <router-link :to="{ name: 'Inscripcion', query: { categoria: categoria.name } }" class="btn-preview">
-              Inscribirme
-            </router-link>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VALUES SECTION -->
-    <section class="values-section" ref="valuesSection" :class="{ 'is-visible': isValuesVisible }">
-      <div class="container">
-        <h2 class="section-title text-center">Nuestra <span class="text-accent">Filosofía</span></h2>
-
-        <div class="values-grid">
-          <div v-for="item in homeSettings.philosophy" :key="item.id" class="value-card">
-            <div class="icon-box">
-              <i :class="item.icon"></i>
-            </div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-          </div>
         </div>
       </div>
     </section>
@@ -216,693 +253,692 @@ onUnmounted(() => {
   </div>
 </template>
 
-
 <style scoped>
-/* CONTAINER - Shared alignment */
-.container {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
+.py-24 {
+  padding: 6rem 0;
 }
 
-/* HERO SECTION */
-.hero {
-  /* Min height and padding to ensure full impact */
-  min-height: 85vh;
-  padding: 4rem 0;
-  display: flex;
-  align-items: center;
+.mb-12 {
+  margin-bottom: 3rem;
 }
 
-/* Flex container for hero content */
-.hero__container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  width: 100%;
+.mb-16 {
+  margin-bottom: 4rem;
 }
 
-/* LEFT COLUMN - TEXT */
-.hero__content {
-  flex: 1;
-  max-width: 600px;
-  animation: fadeInDown 1s ease-out;
+.mt-2 {
+  margin-top: 0.5rem;
 }
 
-.hero__title {
-  font-size: 4rem;
-  font-weight: 800;
-  line-height: 1.1;
-  margin-bottom: 1.5rem;
-  color: var(--text-primary);
-  font-family: 'Poppins', sans-serif;
-  /* Ensure premium font */
+.mt-4 {
+  margin-top: 1rem;
 }
 
-.highlight {
-  color: var(--accent-color);
-
-  .hero__container {
-    flex-direction: column-reverse;
-    /* Image on top for visual impact on mobile */
-    gap: 2rem;
-  }
-
-  .hero {
-    text-align: center;
-    padding-top: 6rem;
-    padding-bottom: 4rem;
-    min-height: auto;
-    display: block;
-    /* Disable flex on parent to allow natural flow */
-  }
-
-  .hero__title {
-    font-size: 3rem;
-  }
-
-  .hero__content {
-    margin: 0 auto;
-  }
-
-  .hero__actions {
-    justify-content: center;
-  }
-
-  .image-wrapper {
-    max-width: 350px;
-    margin: 0 auto;
-  }
+.mt-6 {
+  margin-top: 1.5rem;
 }
 
-@media (max-width: 480px) {
-  .hero__title {
-    font-size: 2.5rem;
-  }
-
-  .btn {
-    width: auto;
-    min-width: 160px;
-    padding: 0.6rem 1.0rem;
-    font-size: 0.95rem;
-  }
-
-  .hero__actions {
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
+.mt-8 {
+  margin-top: 2rem;
 }
 
-/* MATCH CENTER */
-.match-center {
-  padding: 4rem 0;
-  text-align: center;
-  animation: fadeInDown 1s ease-out;
+.mt-10 {
+  margin-top: 2.5rem;
 }
 
-/* MATCH CENTER HEADER */
-.match-center__header {
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  /* Max width handled by container now */
-}
-
-.carousel-controls {
-  display: flex;
-  gap: 1rem;
-}
-
-.nav-btn {
-  background-color: var(--card-bg);
-  border: 2px solid var(--accent-color);
-  color: var(--text-primary);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 1rem;
-}
-
-.nav-btn:hover {
-  background-color: var(--accent-color);
-  color: #fff;
-  transform: scale(1.1);
-}
-
-.nav-btn:focus {
-  outline: none;
-}
-
-/* MATCH CAROUSEL */
-.matches-carousel {
-  display: flex;
-  overflow-x: auto;
-  gap: 1rem;
-  padding: 1rem 0 3rem 0;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-
-.matches-carousel::-webkit-scrollbar {
-  height: 8px;
-}
-
-.matches-carousel::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-}
-
-.matches-carousel::-webkit-scrollbar-thumb {
-  background: var(--accent-color);
-  border-radius: 4px;
-}
-
-/* MATCH CARD */
-.match-card {
-  flex: 0 0 100%;
-  /* Show ONLY ONE match at a time */
-  min-width: 100%;
-  /* Force full width */
-  scroll-snap-align: center;
-  background-color: var(--card-bg);
-  padding: 2rem;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
-  max-width: 800px;
-  /* Limit width on desktop */
-  margin: 0 auto;
-  /* Center the card itself if needed, though flex container handles it */
-}
-
-@media (min-width: 1024px) {
-  .matches-carousel {
-    justify-content: flex-start;
-    /* Maintain scroll flow */
-  }
-}
-
-.match-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 2rem;
-}
-
-/* Dark mode adjustments for card */
-:root.dark .match-card {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.team {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-}
-
-.team__logo {
-  height: 80px;
-  width: auto;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
-}
-
-.placeholder-logo {
-  height: 80px;
-  width: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.5rem;
-  color: #ccc;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 50%;
-}
-
-.team__name {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  text-align: center;
-}
-
-/* VS AREA */
-.match-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  min-width: 200px;
-}
-
-.vs-badge {
-  font-size: 2rem;
-  font-weight: 900;
-  color: var(--bg-primary);
-  /* Text checks contrast against ball/circle */
-  background-color: var(--text-primary);
-  /* Inverted */
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-
-.match-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.match-date {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent-color);
-}
-
-/* RESPONSIVE MATCH CENTER */
-@media (max-width: 768px) {
-  .match-card {
-    flex-direction: column;
-    gap: 2rem;
-    padding: 2rem;
-  }
-
-  .team {
-    width: 100%;
-    flex-direction: column;
-    /* Ensure teams stack vertically */
-  }
-
-  /* Check responsiveness for match content inside card */
-  .match-content {
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .match-center__header {
-    flex-direction: column;
-    gap: 1.5rem;
-    align-items: center;
-  }
-
-  .carousel-controls {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .match-info {
-    order: 0;
-  }
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* LATEST NEWS SECTION */
-.latest-news {
-  padding: 4rem 0;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 2.5rem;
-}
-
-.view-all-link {
-  color: var(--accent-color);
-  text-decoration: none;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: transform 0.3s ease;
-}
-
-.view-all-link:hover {
-  transform: translateX(5px);
-}
-
-.news-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  padding: 0 1rem;
-}
-
-.news-card {
-  background-color: var(--card-bg);
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-:root.dark .news-card {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.news-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-}
-
-.news-card__image {
-  height: 200px;
-  overflow: hidden;
-  position: relative;
-}
-
-.news-card__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.news-card:hover .news-card__image img {
-  transform: scale(1.1);
-}
-
-.news-date {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background-color: var(--accent-color);
-  color: #fff;
-  padding: 0.25rem 0.8rem;
-  border-radius: 5px;
-  font-weight: 700;
-  font-size: 0.8rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-}
-
-.news-card__content {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.news-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.3;
-}
-
-.news-excerpt {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.6;
-  display: -webkit-box;
-  /* Ellipsis for multi-line */
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.read-more {
-  color: var(--accent-color);
-  font-weight: 600;
-  text-decoration: none;
-  font-size: 0.9rem;
-  margin-top: auto;
-  /* Push to bottom if height fixed, though flexible here */
-  display: inline-block;
-}
-
-.read-more:hover {
-  text-decoration: underline;
-}
-
-@media (max-width: 768px) {
-  .news-grid {
-    grid-template-columns: 1fr;
-    /* Stack on mobile */
-    max-width: 400px;
-    margin: 0 auto;
-  }
-}
-
-
-
-/* VALUES SECTION */
-.values-section {
-  padding: 5rem 0;
-  background-color: var(--bg-secondary);
-  /* Slight contrast background */
-  position: relative;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.text-center {
-  text-align: center;
-}
-
-/* .container handles width now */
-
-.values-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 3rem;
+.mt-12 {
   margin-top: 3rem;
 }
 
-.value-card {
-  text-align: center;
-  padding: 2rem;
-  background: var(--bg-primary);
-  border-radius: 20px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.03);
-  transition: all 0.5s ease-out;
-  /* Default transition */
-  border: 1px solid rgba(0, 0, 0, 0.03);
-
-  /* Start hidden state */
-  opacity: 0;
-  transform: translateY(40px);
+.flex {
+  display: flex;
 }
 
-/* Visible state triggered by JS */
-.values-section.is-visible .value-card {
+.justify-between {
+  justify-content: space-between;
+}
+
+.items-end {
+  align-items: flex-end;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.gap-8 {
+  gap: 2rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.max-w-2xl {
+  max-width: 42rem;
+}
+
+.bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 2rem;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: #102215;
+  box-shadow: 0 4px 14px 0 rgba(17, 212, 66, 0.39);
+}
+
+.btn-primary:hover {
+  background-color: #0fb839;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(17, 212, 66, 0.23);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Botones de navegación (Sliders) */
+.control-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 0;
+  border: 1px solid rgba(17, 212, 66, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.control-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--primary-color);
+  transition: width 0.3s ease;
+}
+
+.control-btn:hover::after {
+  width: 100%;
+}
+
+.control-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+.control-btn span {
+  font-size: 1.125rem;
+}
+
+/* Match Carousel Modern */
+.matches-carousel {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  padding: 1rem 0;
+  scroll-snap-type: x mandatory;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.match-card-modern {
+  flex: 0 0 calc(50% - 0.75rem);
+  min-width: 350px;
+  scroll-snap-align: start;
+}
+
+.match-card-inner {
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(17, 212, 66, 0.05);
+  transition: var(--transition);
+}
+
+.match-card-inner:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.match-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.match-cat {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--primary-color);
+  background: rgba(17, 212, 66, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+}
+
+.match-date-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.teams-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.team-v {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.team-logo-box {
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+}
+
+.team-logo-box img {
+  width: 100%;
+  height: auto;
+}
+
+.team-n {
+  font-weight: 800;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.vs-v {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-color);
+  color: #102215;
+  border-radius: 50%;
+  font-weight: 900;
+  font-size: 0.75rem;
+}
+
+.match-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(17, 212, 66, 0.1);
+  padding-top: 1.5rem;
+}
+
+.stadium-txt {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.btn-more {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.news-link {
+  font-weight: 800;
+  color: var(--primary-color);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Category Showcase New */
+.showcase-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 5rem;
+}
+
+.cat-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cat-tab-item {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg-primary);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(17, 212, 66, 0.05);
+  transition: var(--transition);
+}
+
+.cat-tab-item:hover {
+  border-color: var(--primary-color);
+  transform: translateX(5px);
+}
+
+.cat-tab-icon {
+  color: var(--primary-color);
+}
+
+.main-image-box {
+  position: relative;
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-showcase-bg {
+  background: radial-gradient(circle at center, rgba(17, 212, 66, 0.1) 0%, #0c1a0f 100%);
+}
+
+.showcase-logo-img {
+  width: 120px;
+  height: auto;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 15px rgba(17, 212, 66, 0.2));
+  transition: all 0.5s ease;
+}
+
+.main-image-box:hover .showcase-logo-img {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.main-image-box img:not(.showcase-logo-img) {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.8s ease;
+}
+
+.main-image-box:hover img {
+  transform: scale(1.05);
+}
+
+.glass-stats-card {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(16, 34, 21, 0.85);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(17, 212, 66, 0.2);
+  padding: 1.5rem;
+  border-radius: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-num {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--primary-color);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(17, 212, 66, 0.2);
+}
+
+@media (max-width: 992px) {
+  .showcase-wrapper {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+}
+
+/* Philosophy Section */
+.philosophy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 5rem;
+}
+
+.phil-item {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.philosophy-section.is-visible .phil-item {
   opacity: 1;
   transform: translateY(0);
 }
 
-/* Staggered transition delays */
-.values-section.is-visible .value-card:nth-child(1) {
-  transition-delay: 0.1s;
-}
-
-.values-section.is-visible .value-card:nth-child(2) {
-  transition-delay: 0.3s;
-}
-
-.values-section.is-visible .value-card:nth-child(3) {
-  transition-delay: 0.5s;
-}
-
-:root.dark .value-card {
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: var(--card-bg);
-}
-
-/* Hover effect - override transform but keep it smooth */
-.value-card:hover {
-  transform: translateY(-10px) !important;
-  /* Force hover lift even if transition is active */
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  /* Fast response for hover */
-  transition-delay: 0s !important;
-  /* No delay on hover */
-}
-
-/* Keyframes removed as we use transitions now */
-
-.icon-box {
-  width: 80px;
-  height: 80px;
-  background-color: rgba(31, 167, 116, 0.1);
-  /* Light accent color */
+.phil-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  background: rgba(17, 212, 66, 0.1);
+  color: var(--primary-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1.5rem auto;
-  color: var(--accent-color);
-  font-size: 2rem;
-  transition: all 0.3s ease;
 }
 
-.value-card:hover .icon-box {
-  background-color: var(--accent-color);
-  color: #fff;
-  transform: scale(1.1) rotate(5deg);
+/* Philosophy Section Animations */
+.philosophy-section .reveal-left {
+  opacity: 0;
+  transform: translateX(-50px);
+  transition: all 1s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
-.value-card h3 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  color: var(--text-primary);
+.philosophy-section .reveal-right {
+  opacity: 0;
+  transform: translateX(50px);
+  transition: all 1s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
-.value-card p {
-  color: var(--text-secondary);
-  line-height: 1.6;
+.philosophy-section.is-visible .reveal-left,
+.philosophy-section.is-visible .reveal-right {
+  opacity: 1;
+  transform: translateX(0);
 }
 
-/* CATEGORIES PREVIEW */
-.categories-preview {
-  padding: 5rem 0;
-  background-color: var(--bg-primary);
+.image-stack-small {
+  position: relative;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
-.categories-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 2rem;
-  margin-top: 3rem;
+.logo-bg-philosophy {
+  background: radial-gradient(circle at center, rgba(17, 212, 66, 0.12) 0%, #f8faf8 100%);
+  padding: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 350px;
+  transition: background 0.3s ease;
 }
 
-.category-preview-card {
-  background: var(--card-bg);
-  padding: 2.5rem 2rem;
-  border-radius: 20px;
-  text-align: center;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+:root.dark .logo-bg-philosophy {
+  background: radial-gradient(circle at center, rgba(17, 212, 66, 0.15) 0%, #000000 100%);
+}
+
+.philosophy-logo-img {
+  width: 150px;
+  height: auto;
+  filter: drop-shadow(0 0 20px rgba(17, 212, 66, 0.3));
+  opacity: 0.9;
+}
+
+.philosophy-img-rounded {
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+  /* Squared as requested */
+}
+
+.floating-badge-v2 {
+  position: absolute;
+  bottom: -15px;
+  left: -15px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1rem 1.5rem;
+  border-radius: 0;
+  /* Squared */
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.category-preview-card:hover {
-  transform: translateY(-10px);
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-  border-color: var(--accent-color);
+  border-left: 3px solid var(--primary-color);
+  z-index: 5;
 }
 
-:root.dark .category-preview-card {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+:root.dark .floating-badge-v2 {
+  background: rgba(16, 34, 21, 0.9);
 }
 
-.category-preview-icon {
-  width: 70px;
-  height: 70px;
-  background: rgba(31, 167, 116, 0.1);
-  border-radius: 50%;
+/* News Section */
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.news-card-modern {
+  background: var(--card-bg);
+  border-radius: 0;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  border: none;
+}
+
+.news-card-modern:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+}
+
+.news-img {
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+}
+
+.news-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.news-cat-tag {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: var(--primary-color);
+  color: #102215;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.news-body {
+  padding: 1.25rem;
+}
+
+.news-date-txt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.news-title-txt {
+  font-size: 1.15rem;
+  font-weight: 900;
+  margin: 0.5rem 0;
+  line-height: 1.2;
+}
+
+.news-excerpt-txt {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.view-all-link {
+  font-weight: 800;
+  color: var(--text-primary);
+  text-decoration: none;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 1.8rem;
-  color: var(--accent-color);
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   transition: all 0.3s ease;
+  padding-bottom: 0.25rem;
+  position: relative;
 }
 
-.category-preview-card:hover .category-preview-icon {
-  background: var(--accent-color);
-  color: #fff;
-  transform: scale(1.1);
+.view-all-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 2px;
+  background: var(--primary-color);
+  transition: width 0.3s ease;
 }
 
-.category-preview-card h3 {
+.view-all-link:hover {
+  color: var(--primary-color);
+}
+
+.view-all-link:hover::after {
+  width: 100%;
+}
+
+.view-all-link .material-symbols-outlined {
   font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  transition: transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
-.category-preview-card p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 500;
+.view-all-link:hover .material-symbols-outlined {
+  transform: translateX(8px);
 }
 
-.btn-preview {
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--accent-color);
-  text-decoration: none;
-  padding: 0.5rem 1.5rem;
-  border: 1px solid var(--accent-color);
-  border-radius: 50px;
-  transition: all 0.3s ease;
-}
-
-.btn-preview:hover {
-  background: var(--accent-color);
-  color: #fff;
-}
-
-@media (max-width: 768px) {
-  .categories-preview-grid {
+/* RESPONSIVE */
+@media (max-width: 1200px) {
+  .cat-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
+  }
+
+  .philosophy-grid {
+    gap: 2rem;
   }
 }
 
-@media (max-width: 480px) {
-  .categories-preview-grid {
+@media (max-width: 992px) {
+  .news-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .philosophy-grid {
     grid-template-columns: 1fr;
+  }
+
+  .match-card-modern {
+    flex: 0 0 100%;
+    min-width: 100%;
+  }
+
+  .teams-grid {
+    gap: 1rem;
+  }
+
+  .cat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .news-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title {
+    font-size: 2.25rem;
+  }
+
+  .py-24 {
+    padding: 4rem 0;
   }
 }
 </style>

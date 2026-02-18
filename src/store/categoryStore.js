@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { apiService } from '../services/api';
 import escuelaImg from '../assets/img/teams/escuela.png';
 
@@ -254,6 +254,10 @@ export const useCategoryStore = defineStore('categories', () => {
     // 🚀 Auto-init
     initCategories();
 
+    // GETTERS
+    const totalCategories = computed(() => categories.value.length);
+    const totalBenefits = computed(() => benefits.value.length);
+
     return {
         categories,
         benefits,
@@ -264,6 +268,8 @@ export const useCategoryStore = defineStore('categories', () => {
         deleteCategory,
         addBenefit,
         updateBenefit,
-        deleteBenefit
+        deleteBenefit,
+        totalCategories,
+        totalBenefits
     };
 });

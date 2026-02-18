@@ -3,8 +3,11 @@
         <div class="hero-overlay"></div>
         <div class="hero-content-wrapper">
             <div class="hero-content">
-                <h1 class="hero-title">{{ heroData.title }}</h1>
-                <p class="hero-tagline">{{ heroData.tagline }}</p>
+                <div class="hero-badge">
+                    <span class="material-symbols-outlined">star</span>
+                    {{ heroData.tagline }}
+                </div>
+                <h1 class="hero-title" v-html="formattedTitle"></h1>
             </div>
         </div>
     </section>
@@ -29,10 +32,20 @@ const homeSettings = useHomeSettingsStore();
 
 const heroData = computed(() => {
     return homeSettings.pageHeroes[props.pageKey] || {
-        title: 'Unión Jeguera',
+        title: 'Unión Jaguera',
         tagline: 'Pasión y Fútbol',
         image: ''
     };
+});
+
+const formattedTitle = computed(() => {
+    const title = heroData.value.title;
+    // Highlight first or last word depending on length
+    const words = title.split(' ');
+    if (words.length > 1) {
+        words[words.length - 1] = `<span class="text-primary italic">${words[words.length - 1]}</span>`;
+    }
+    return words.join(' ');
 });
 
 const heroStyle = computed(() => {
@@ -47,8 +60,8 @@ const heroStyle = computed(() => {
 <style scoped>
 .general-hero {
     position: relative;
-    height: 70vh;
-    min-height: 500px;
+    height: 60vh;
+    min-height: 450px;
     background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
@@ -60,53 +73,58 @@ const heroStyle = computed(() => {
 
 .hero-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to bottom, rgba(15, 61, 46, 0.3), rgba(0, 0, 0, 0.6));
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(16, 34, 21, 0.7) 0%, rgba(16, 34, 21, 0.4) 50%, rgba(16, 34, 21, 0.8) 100%);
     z-index: 1;
 }
 
 .hero-content-wrapper {
     position: relative;
-    z-index: 2;
-    padding: 2rem;
+    z-index: 10;
     width: 100%;
-    max-width: 900px;
+    max-width: 1280px;
+    padding: 0 1.5rem;
+    text-align: center;
 }
 
 .hero-content {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 5rem 2rem;
-    border-radius: 40px;
-    text-align: center;
+    /* REMOVED: Transparent box styles */
+    padding: 2rem 0;
     color: #fff;
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
     animation: fadeIn 1.2s ease-out forwards;
 }
 
-.hero-title {
-    font-size: 5rem;
-    font-weight: 900;
-    margin-bottom: 1rem;
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(17, 212, 66, 0.15);
+    border: 1px solid rgba(17, 212, 66, 0.25);
+    border-radius: 9999px;
+    color: var(--primary-color);
+    font-size: 0.875rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: -2px;
-    line-height: .9;
+    letter-spacing: 0.1em;
+    margin-bottom: 2rem;
     opacity: 0;
-    animation: fadeInUp 0.8s ease-out 0.4s forwards;
+    animation: fadeInUp 0.8s ease-out 0.3s forwards;
 }
 
-.hero-tagline {
-    font-size: 1.8rem;
-    font-weight: 300;
-    opacity: 0;
-    letter-spacing: 3px;
+.hero-badge .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+.hero-title {
+    font-size: 5.5rem;
+    font-weight: 950;
+    margin-bottom: 1rem;
     text-transform: uppercase;
-    animation: fadeInUp 0.8s ease-out 0.7s forwards;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    opacity: 0;
+    animation: fadeInUp 0.8s ease-out 0.5s forwards;
 }
 
 @keyframes fadeIn {
@@ -126,27 +144,29 @@ const heroStyle = computed(() => {
     }
 
     to {
-        opacity: 0.9;
+        opacity: 1;
         transform: translateY(0);
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
     .hero-title {
-        font-size: 2.5rem;
+        font-size: 4rem;
     }
+}
 
-    .hero-tagline {
-        font-size: 1.1rem;
-    }
-
+@media (max-width: 768px) {
     .general-hero {
         height: 50vh;
-        min-height: 400px;
     }
 
-    .hero-content {
-        padding: 3rem 1.5rem;
+    .hero-title {
+        font-size: 2.75rem;
+    }
+
+    .hero-badge {
+        font-size: 0.75rem;
+        margin-bottom: 1rem;
     }
 }
 </style>

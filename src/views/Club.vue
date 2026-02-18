@@ -22,10 +22,10 @@
         </section>
 
         <!-- MISIÓN Y VISIÓN SECTION -->
-        <section class="mission-vision-section">
+        <section class="mission-vision-section" ref="mvSection" :class="{ 'is-visible': isMvVisible }">
             <div class="container">
                 <div class="mission-vision-grid">
-                    <div class="mv-card">
+                    <div class="mv-card reveal-left">
                         <div class="mv-icon">
                             <i class="fa-solid fa-bullseye"></i>
                         </div>
@@ -37,7 +37,7 @@
                         </p>
                     </div>
 
-                    <div class="mv-card">
+                    <div class="mv-card reveal-right">
                         <div class="mv-icon">
                             <i class="fa-solid fa-eye"></i>
                         </div>
@@ -52,12 +52,14 @@
         </section>
 
         <!-- DIRECTIVA SECTION -->
-        <section class="directiva-section">
+        <section class="directiva-section" ref="directivaRef" :class="{ 'is-visible': isDirectivaVisible }">
             <div class="container">
                 <h2 class="section-title">Comisión <span class="text-accent">Directiva</span></h2>
 
                 <div class="directiva-grid">
-                    <div v-for="member in clubStore.boardMembers" :key="member.id" class="directiva-card">
+                    <div v-for="(member, index) in clubStore.boardMembers" :key="member.id" class="directiva-card"
+                        :class="index % 2 === 0 ? 'reveal-left' : 'reveal-right'"
+                        :style="{ transitionDelay: `${index * 0.1}s` }">
                         <div class="directiva-photo" :class="{ 'has-image': member.image }">
                             <img v-if="member.image" :src="member.image" :alt="member.name" class="member-img">
                             <i v-else class="fa-solid fa-user"></i>
@@ -105,9 +107,27 @@ const timeline = computed(() => clubStore.timeline);
 // Timeline animation
 const timelineSection = ref(null);
 const visibleItems = ref([]);
+const mvSection = ref(null);
+const isMvVisible = ref(false);
+const directivaRef = ref(null);
+const isDirectivaVisible = ref(false);
 let observer = null;
+let mvObserver = null;
+let directivaObserver = null;
 
 onMounted(() => {
+    // Observer for Directive
+    directivaObserver = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+            isDirectivaVisible.value = true;
+            directivaObserver.unobserve(entry.target);
+        }
+    }, { threshold: 0.15 });
+
+    if (directivaRef.value) {
+        directivaObserver.observe(directivaRef.value);
+    }
+
     // Create observer for timeline items
     observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
@@ -122,6 +142,18 @@ onMounted(() => {
         threshold: 0.2,
         rootMargin: '0px 0px -100px 0px'
     });
+
+    // Observer for Mission/Vision
+    mvObserver = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+            isMvVisible.value = true;
+            mvObserver.unobserve(entry.target);
+        }
+    }, { threshold: 0.2 });
+
+    if (mvSection.value) {
+        mvObserver.observe(mvSection.value);
+    }
 
     // Observe all timeline items
     setTimeout(() => {
@@ -138,6 +170,12 @@ onMounted(() => {
 onUnmounted(() => {
     if (observer) {
         observer.disconnect();
+    }
+    if (mvObserver) {
+        mvObserver.disconnect();
+    }
+    if (directivaObserver) {
+        directivaObserver.disconnect();
     }
 });
 </script>
@@ -304,42 +342,83 @@ onUnmounted(() => {
 
 .mv-card {
     background: var(--bg-primary);
-    padding: 3rem 2rem;
-    border-radius: 15px;
+    padding: 3.5rem 2.5rem;
+    border-radius: 0;
     text-align: center;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    border: none;
+    transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.mv-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--accent-color);
+    transform: scaleX(0);
+    transition: transform 0.5s ease;
+    transform-origin: left;
+}
+
+.mv-card:hover::before {
+    transform: scaleX(1);
 }
 
 .mv-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    transform: translateY(-12px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
 }
 
 :root.dark .mv-card {
     background: var(--card-bg);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Reveal Animations */
+.reveal-left {
+    opacity: 0;
+    transform: translateX(-60px);
+    transition: all 1s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.reveal-right {
+    opacity: 0;
+    transform: translateX(60px);
+    transition: all 1s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+/* Global Reveal Animations Control */
+.is-visible .reveal-left,
+.is-visible .reveal-right {
+    opacity: 1;
+    transform: translateX(0);
 }
 
 .mv-icon {
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
     background: rgba(31, 167, 116, 0.1);
-    border-radius: 50%;
+    border-radius: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 1.5rem;
-    font-size: 2rem;
+    font-size: 1.8rem;
     color: var(--accent-color);
+    border: 1px solid rgba(31, 167, 116, 0.2);
 }
 
 .mv-title {
     font-size: 1.8rem;
-    font-weight: 700;
+    font-weight: 800;
     color: var(--text-primary);
     margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .mv-text {
@@ -351,65 +430,83 @@ onUnmounted(() => {
 /* DIRECTIVA */
 .directiva-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
 }
 
 .directiva-card {
     background: var(--card-bg);
-    padding: 2rem;
-    border-radius: 15px;
+    padding: 0;
+    border-radius: 0;
     text-align: center;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
+    border: none;
+    transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+    position: relative;
+    overflow: hidden;
+    padding-bottom: 2rem;
 }
 
 .directiva-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
-}
-
-:root.dark .directiva-card {
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
 }
 
 .directiva-photo {
-    width: 120px;
-    height: 120px;
+    width: 100%;
+    height: 250px;
     background: var(--bg-secondary);
-    border-radius: 50%;
+    border-radius: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1.5rem;
+    margin-bottom: 1.5rem;
     font-size: 3rem;
     color: var(--text-secondary);
-    border: 4px solid var(--accent-color);
+    position: relative;
     overflow: hidden;
+    border-bottom: 3px solid transparent;
+    transition: all 0.4s ease;
+}
+
+.directiva-card:hover .directiva-photo {
+    border-bottom-color: var(--accent-color);
 }
 
 .directiva-photo.has-image {
-    padding: 0;
+    background: #000;
 }
 
 .member-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.6s ease;
+    filter: grayscale(100%);
+}
+
+.directiva-card:hover .member-img {
+    transform: scale(1.08);
+    filter: grayscale(0%);
 }
 
 .directiva-name {
-    font-size: 1.3rem;
-    font-weight: 700;
+    font-size: 1.15rem;
+    font-weight: 900;
     color: var(--text-primary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    padding: 0 1rem;
 }
 
 .directiva-position {
     color: var(--accent-color);
-    font-weight: 600;
-    font-size: 1rem;
+    font-weight: 800;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 0 1rem;
 }
 
 /* INSTALACIONES */

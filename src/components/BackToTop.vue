@@ -35,29 +35,30 @@ onUnmounted(() => {
 <style scoped>
 .back-to-top {
     position: fixed;
-    bottom: 2rem;
+    bottom: 2.5rem;
     right: 2rem;
     background-color: var(--accent-color);
-    color: #fff;
-    width: 50px;
-    height: 50px;
+    color: #102215;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    aspect-ratio: 1 / 1;
     border-radius: 50%;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
-    box-shadow: 0 4px 15px rgba(31, 167, 116, 0.4);
-    z-index: 999;
-    transition: all 0.3s ease;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 15px rgba(17, 212, 66, 0.4);
+    z-index: 1000;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
 .back-to-top:hover {
-    transform: translateY(-5px);
-    background-color: #158f61;
-    /* Darker accent */
-    box-shadow: 0 6px 20px rgba(31, 167, 116, 0.6);
+    transform: translateY(-5px) scale(1.05);
+    background-color: #0fb839;
+    box-shadow: 0 8px 20px rgba(17, 212, 66, 0.5);
 }
 
 .back-to-top:focus {
@@ -82,8 +83,9 @@ onUnmounted(() => {
     .back-to-top {
         bottom: 1.5rem;
         right: 1.5rem;
-        width: 45px;
-        height: 45px;
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
     }
 }
 </style>

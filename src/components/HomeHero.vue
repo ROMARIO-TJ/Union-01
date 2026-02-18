@@ -40,7 +40,7 @@ const goToSlide = (index) => {
 };
 
 const startTimer = () => {
-    intervalId.value = setInterval(nextSlide, 6000);
+    intervalId.value = setInterval(nextSlide, 8000);
 };
 
 const stopTimer = () => {
@@ -66,34 +66,42 @@ onUnmounted(() => {
         <transition-group name="fade" tag="div" class="slides-container">
             <div v-for="(slide, index) in allSlides" :key="slide.id" v-show="currentSlide === index">
 
-                <!-- DYNAMIC SLIDE (Normal or Identity) -->
-                <div v-if="!slide.isMatch" class="hero-slide" :class="{ 'slide-identity': slide.isIdentity }">
-                    <!-- Background for normal slide -->
-                    <div v-if="slide.image" class="slide-bg-image" :style="{ backgroundImage: `url(${slide.image})` }">
+                <!-- DYNAMIC SLIDE -->
+                <div v-if="!slide.isMatch" class="hero-slide">
+                    <!-- Background -->
+                    <div class="slide-bg-image"
+                        :style="{ backgroundImage: `url(${slide.image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuANfCGIMub5F2suFSE8VdlAZELvKCelYOcmhFUauUO7a4K7LWaV4BUWBzh0-935qbTjL5HBXWO8hgekmKfC6Ue20TbYJwMlclIDaa9vdRQZ0NLzCILzz8pWgxAxJg5GNfZmSjImsXssPC27i4hi338vl-Gm0YDYVjgPRZG_zetKhZiWpgIcPZalNvSLDjtMiQJlThfCQoxJE1BJg5nnVs-9V7z4Ksu6qFCFBTFk3VqGuEUvrZhWL-hP4uz164Y9duWejzKRNTQ0-jw3'})` }">
                     </div>
-                    <div v-if="slide.image" class="slide-overlay"></div>
-
-                    <!-- Logo style for identity slide -->
-                    <div v-if="slide.isIdentity" class="slide-image">
-                        <div class="image-wrapper">
-                            <img src="../assets/img/logosinfondo.png" alt="Unión Jeguera Logo" />
-                        </div>
-                    </div>
+                    <div class="slide-overlay"></div>
 
                     <div class="slide-content-wrapper">
                         <div class="container hero__container">
                             <div class="hero__content">
+                                <!-- Badge -->
+                                <div class="hero-badge">
+                                    <span class="pulse-dot">
+                                        <span class="ping"></span>
+                                        <span class="dot"></span>
+                                    </span>
+                                    Temporada 2026 Abierta
+                                </div>
+
                                 <h1 class="hero__title"
-                                    v-html="slide.title.replace(/Jeguera/g, '<span class=\'highlight\'>Jeguera</span>')">
+                                    v-html="slide.title.replace(/Futuro/g, '<span class=\'text-primary italic\'>Futuro</span>').replace(/Jaguera/g, '<span class=\'text-primary italic\'>Jaguera</span>')">
                                 </h1>
+
                                 <p class="hero__subtitle">{{ slide.subtitle }}</p>
+
                                 <div class="hero__actions">
-                                    <router-link :to="slide.primaryBtnLink" class="btn btn--primary">
-                                        {{ slide.primaryBtnText }}
+                                    <router-link :to="slide.primaryBtnLink || '/inscripciones'"
+                                        class="btn btn-primary btn-hero-lg group">
+                                        {{ slide.primaryBtnText || 'Inscripciones' }}
+                                        <span class="material-symbols-outlined icon-move">arrow_forward</span>
                                     </router-link>
-                                    <router-link v-if="slide.secondaryBtnText" :to="slide.secondaryBtnLink"
-                                        :class="slide.isIdentity ? 'btn btn--outline-identity' : 'btn btn--outline'">
-                                        {{ slide.secondaryBtnText }}
+
+                                    <router-link v-if="slide.secondaryBtnText || slide.isIdentity"
+                                        :to="slide.secondaryBtnLink || '/club'" class="btn btn-outline-hero">
+                                        {{ slide.secondaryBtnText || 'Conoce el Club' }}
                                     </router-link>
                                 </div>
                             </div>
@@ -101,37 +109,44 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <!-- MATCH SLIDE (Special logic) -->
+                <!-- MATCH SLIDE -->
                 <div v-else class="hero-slide slide-match">
                     <div class="slide-bg-image"
                         style="background-image: url('https://realvalladolidacademy.com/wp-content/uploads/2024/06/tecnificacion-futbol-3.webp')">
                     </div>
-                    <div class="slide-overlay">
+                    <div class="slide-overlay"></div>
+
+                    <div class="slide-content-wrapper">
                         <div class="container hero__container">
                             <div class="hero__content text-center">
-                                <div class="match-badge">Próximo Encuentro</div>
+                                <div class="hero-badge mx-auto">Próximo Encuentro</div>
+
                                 <div v-if="nextMatch" class="match-display">
                                     <h2 class="match-teams">
-                                        <span class="home-team">{{ nextMatch.homeTeam }}</span>
-                                        <span class="Vs">VS</span>
-                                        <span class="away-team">{{ nextMatch.awayTeam }}</span>
+                                        <span class="team-name">{{ nextMatch.homeTeam }}</span>
+                                        <span class="vs-circle">VS</span>
+                                        <span class="team-name">{{ nextMatch.awayTeam }}</span>
                                     </h2>
-                                    <div class="match-details">
-                                        <div class="detail-item"><i class="fa-solid fa-calendar"></i> {{ nextMatch.date
-                                        }}</div>
-                                        <div class="detail-item"><i class="fa-solid fa-clock"></i> {{ nextMatch.time }}
-                                        </div>
-                                        <div class="detail-item"><i class="fa-solid fa-location-dot"></i> {{
-                                            nextMatch.stadium }}</div>
+
+                                    <div class="match-info-row">
+                                        <div class="info-tag"><span
+                                                class="material-symbols-outlined">calendar_today</span> {{
+                                                    nextMatch.date }}</div>
+                                        <div class="info-tag"><span class="material-symbols-outlined">schedule</span> {{
+                                            nextMatch.time }}</div>
+                                        <div class="info-tag"><span class="material-symbols-outlined">location_on</span>
+                                            {{ nextMatch.stadium }}</div>
                                     </div>
+
                                     <div class="hero__actions center-actions">
-                                        <router-link to="/partidos" class="btn btn--primary">Ver Match
-                                            Center</router-link>
+                                        <router-link to="/partidos" class="btn btn-primary">Ver Centro de
+                                            Partidos</router-link>
                                     </div>
                                 </div>
-                                <div v-else class="no-match">
-                                    <h2>¡Temporada en Curso!</h2>
-                                    <p>Sigue atento a nuestros próximos partidos.</p>
+
+                                <div v-else class="no-match-box">
+                                    <h2 class="text-4xl font-black italic">¡TEMPORADA EN CURSO!</h2>
+                                    <p class="text-slate-300 mt-4">Sigue atento a nuestros próximos partidos.</p>
                                 </div>
                             </div>
                         </div>
@@ -142,7 +157,7 @@ onUnmounted(() => {
         </transition-group>
 
         <!-- Dots Navigation -->
-        <div class="carousel-dots" :class="{ 'dots-theme-aware': allSlides[currentSlide]?.isIdentity }">
+        <div class="carousel-dots">
             <button v-for="(slide, index) in totalSlides" :key="'dot-' + index" class="dot"
                 :class="{ active: currentSlide === index }" @click="goToSlide(index)">
             </button>
@@ -153,12 +168,11 @@ onUnmounted(() => {
 <style scoped>
 .home-hero-carousel {
     position: relative;
-    height: 65vh;
-    min-height: 450px;
-    max-height: 700px;
+    height: 100vh;
+    min-height: 700px;
     width: 100%;
     overflow: hidden;
-    background-color: var(--bg-primary);
+    background-color: #102215;
 }
 
 .slides-container {
@@ -177,7 +191,6 @@ onUnmounted(() => {
     align-items: center;
 }
 
-/* Background Images for Slide 2 & 3 */
 .slide-bg-image {
     position: absolute;
     top: 0;
@@ -187,10 +200,8 @@ onUnmounted(() => {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    animation: zoomEffect 15s infinite alternate;
+    animation: zoomEffect 20s infinite alternate linear;
     z-index: 1;
-    /* Explicitly set z-index */
-    display: block;
 }
 
 @keyframes zoomEffect {
@@ -205,84 +216,25 @@ onUnmounted(() => {
 
 .slide-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to right, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 50%, rgba(0, 0, 0, 0.3) 100%);
+    inset: 0;
+    background: linear-gradient(to right, rgba(16, 34, 21, 0.9) 0%, rgba(16, 34, 21, 0.4) 50%, rgba(16, 34, 21, 0.1) 100%);
     z-index: 2;
-    /* Ensure overlay is on top */
-    display: flex;
-    align-items: center;
-}
-
-/* Specific Style for Identity Slide */
-.slide-identity {
-    background-color: var(--bg-primary);
-    /* Subtle gradient that works in both modes but respects theme base */
-    background: radial-gradient(circle at top right, var(--card-bg), var(--bg-primary));
 }
 
 .slide-content-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: relative;
+    z-index: 10;
     width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    z-index: 3;
 }
 
-.slide-identity .hero__title {
-    color: var(--text-primary);
-}
-
-.slide-identity .hero__subtitle {
-    color: var(--text-secondary);
-}
-
-.slide-identity .btn--outline-identity {
-    border: 2px solid var(--text-secondary);
-    color: var(--text-primary);
-    background: transparent;
-}
-
-.slide-identity .btn--outline-identity:hover {
-    border-color: var(--accent-color);
-    color: var(--accent-color);
-}
-
-.slide-identity .slide-image {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 50%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.8;
-}
-
-.slide-identity .hero__container {
-    pointer-events: auto;
-}
-
-/* Reusing Hero Styles from Home.vue */
 .hero__container {
     display: flex;
     align-items: center;
-    height: 100%;
-    padding: 0 2rem;
-    position: relative;
-    z-index: 3;
+    width: 100%;
 }
 
 .hero__content {
-    max-width: 600px;
-    color: #fff;
-    animation: slideUp 0.8s ease-out forwards;
+    max-width: 800px;
 }
 
 .text-center {
@@ -290,28 +242,82 @@ onUnmounted(() => {
     margin: 0 auto;
 }
 
-/* Default Hero Text (For Image Slides) */
-.hero__title {
-    font-size: 3.5rem;
-    font-weight: 800;
+/* Badge */
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(17, 212, 66, 0.2);
+    border: 1px solid rgba(17, 212, 66, 0.3);
+    border-radius: 9999px;
+    color: var(--primary-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     margin-bottom: 1.5rem;
-    line-height: 1.1;
-    color: #fff;
-    /* Image slides always white */
 }
 
-.highlight {
-    color: var(--accent-color);
+.pulse-dot {
+    position: relative;
+    display: flex;
+    height: 8px;
+    width: 8px;
+}
+
+.ping {
+    animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+    position: absolute;
+    display: inline-flex;
+    height: 100%;
+    width: 100%;
+    border-radius: 9999px;
+    background-color: var(--primary-color);
+    opacity: 0.75;
+}
+
+@keyframes ping {
+
+    75%,
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+.dot {
+    position: relative;
+    display: inline-flex;
+    border-radius: 9999px;
+    height: 8px;
+    width: 8px;
+    background-color: var(--primary-color);
+}
+
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Typography */
+.hero__title {
+    font-size: 4.5rem;
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    color: #fff;
 }
 
 .hero__subtitle {
     font-size: 1.25rem;
-    color: #e5e7eb;
-    /* Light grey for image slides */
-    margin-bottom: 2.5rem;
+    color: #cbd5e1;
+    max-width: 600px;
     line-height: 1.6;
+    margin-bottom: 2.5rem;
 }
 
+/* Buttons */
 .hero__actions {
     display: flex;
     gap: 1rem;
@@ -322,188 +328,110 @@ onUnmounted(() => {
     margin-top: 2rem;
 }
 
-/* Button Styles */
-.btn {
-    display: inline-block;
+.btn-hero-lg {
     padding: 1rem 2rem;
-    border-radius: 50px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    border: 2px solid transparent;
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.btn--primary {
-    background-color: var(--accent-color);
+.icon-move {
+    transition: transform 0.3s;
+}
+
+.btn-hero-lg:hover .icon-move {
+    transform: translateX(4px);
+}
+
+.btn-outline-hero {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(4px);
     color: #fff;
 }
 
-.btn:focus {
-    outline: none;
+.btn-outline-hero:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.4);
 }
 
-.btn--primary:hover {
-    background-color: #15803d;
-    /* dark green */
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-}
-
-.btn--primary:focus {
-    background-color: #158f61;
-    box-shadow: none;
-}
-
-/* Outline button for Image Slides (always white context) */
-.btn--outline {
-    border-color: rgba(255, 255, 255, 0.5);
-    color: #fff;
-}
-
-.btn--outline:hover {
-    border-color: #fff;
-    background-color: rgba(255, 255, 255, 0.993);
-    color: var(--accent-color);
-    font-weight: 700;
-}
-
-/* Match Slide Styles */
-.match-badge {
-    display: inline-block;
-    background-color: var(--accent-color);
-    color: #fff;
-    padding: 0.5rem 1.5rem;
-    border-radius: 50px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1.5rem;
+/* Match Slide */
+.match-display {
+    padding: 2rem 0;
+    max-width: 900px;
+    margin: 0 auto;
 }
 
 .match-teams {
-    font-size: 3rem;
-    font-weight: 800;
-    margin-bottom: 2rem;
-    display: flex;
-    flex-direction: column;
-    /* Stack VERTICALLY as requested */
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    line-height: 1.2;
-    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    width: 100%;
-}
-
-
-
-.Vs {
     display: flex;
     align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    width: 50px;
-    height: 50px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    font-size: 1rem;
-    font-weight: 900;
-    color: var(--accent-color);
-    margin: 0 0.5rem;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    flex-shrink: 0;
-    /* Prevent squishing */
-}
-
-.home-team,
-.away-team {
-    text-align: center;
-    /* Force center alignment */
-}
-
-.match-details {
-    display: flex;
     justify-content: center;
     gap: 2rem;
-    font-size: 1.2rem;
-    color: #ffd;
+    font-size: 3rem;
+    font-weight: 900;
+    font-style: italic;
+    margin-bottom: 2rem;
 }
 
-.detail-item i {
-    color: var(--accent-color);
-    margin-right: 0.5rem;
+.vs-circle {
+    width: 60px;
+    height: 60px;
+    background: var(--primary-color);
+    color: #102215;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 1.25rem;
+    font-weight: 900;
 }
 
-/* Academy Slide Styles */
-.highlight-tag {
-    color: var(--accent-color);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 0.5rem;
-    display: block;
+.match-info-row {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    color: #94a3b8;
+    font-weight: 600;
 }
 
-/* Dots Navigation */
+.info-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-tag .material-symbols-outlined {
+    color: var(--primary-color);
+}
+
+/* Dots */
 .carousel-dots {
     position: absolute;
     bottom: 2rem;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 0.8rem;
-    z-index: 10;
+    gap: 0.75rem;
+    z-index: 20;
 }
 
 .dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.4);
+    width: 25px;
+    height: 4px;
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.2);
     border: none;
     cursor: pointer;
-    transition: all 0.3s ease;
-    padding: 0;
-    outline: none;
-    box-shadow: none;
-}
-
-.dot:focus {
-    outline: none;
-}
-
-.dot:hover {
-    background-color: rgba(255, 255, 255, 0.8);
-    transform: scale(1.1);
+    transition: var(--transition);
 }
 
 .dot.active {
-    background-color: var(--accent-color);
-    transform: scale(1.2);
-    width: 30px;
-    border-radius: 12px;
+    background: var(--primary-color);
+    width: 40px;
 }
 
-/* Theme Aware Dots (For Identity Slide) */
-.dots-theme-aware .dot {
-    background-color: var(--text-secondary);
-    /* Visible on both dark and light theme backgrounds */
-    opacity: 0.5;
-}
-
-.dots-theme-aware .dot:hover {
-    opacity: 1;
-}
-
-.dots-theme-aware .dot.active {
-    background-color: var(--accent-color);
-    opacity: 1;
-}
-
-/* Transitions */
+/* Fade Transition */
 .fade-enter-active,
 .fade-leave-active {
     transition: opacity 1s ease;
@@ -514,92 +442,49 @@ onUnmounted(() => {
     opacity: 0;
 }
 
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 /* Responsive */
-@media (max-width: 968px) {
-    .slide-identity .slide-image {
-        display: none;
-        /* Hide image on tablet/mobile for cleaner text */
-    }
-
-    .hero__content {
-        text-align: center;
-        margin: 0 auto;
-        padding: 0 1rem;
-        /* Ensure padding on smaller screens */
-    }
-
-    .hero__actions {
-        justify-content: center;
+@media (max-width: 992px) {
+    .hero__title {
+        font-size: 3.5rem;
     }
 
     .match-teams {
-        font-size: 2.5rem;
+        font-size: 2.25rem;
+    }
+
+    .match-info-row {
+        gap: 1.5rem;
+        font-size: 0.875rem;
     }
 }
 
 @media (max-width: 768px) {
-    .match-teams {
-        flex-direction: column;
-        /* Stack vertically on mobile */
-        gap: 1rem;
-    }
-
-    .match-details {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
     .hero__title {
-        font-size: 2.5rem;
-        /* Smaller title */
+        font-size: 2.75rem;
     }
 
-    .hero__subtitle {
-        font-size: 1.1rem;
+    .hero-slide {
+        text-align: center;
     }
 
-    .Vs {
-        margin: 0.5rem 0;
-        /* Add vertical margin */
-    }
-}
-
-@media (max-width: 480px) {
-    .hero__title {
-        font-size: 2rem;
-    }
-
-    .match-teams {
-        font-size: 1.8rem;
+    .hero__container {
+        justify-content: center;
     }
 
     .hero__actions {
         flex-direction: column;
-        width: 100%;
-        gap: 0.8rem;
+        align-items: center;
     }
 
-    .btn {
-        width: 100%;
-        text-align: center;
-        padding: 0.8rem 1.5rem;
+    .match-teams {
+        flex-direction: column;
+        gap: 1rem;
     }
 
-    .home-hero-carousel {
-        min-height: 500px;
-        /* Ensure enough height for stacked content */
+    .match-info-row {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
     }
 }
 </style>

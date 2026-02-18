@@ -31,7 +31,7 @@ const currentPhilId = ref(null);
 const philForm = ref({
   title: '',
   description: '',
-  icon: 'fa-solid fa-star'
+  icon: 'star'
 });
 
 const showSuccess = (msg) => {
@@ -82,7 +82,7 @@ const deleteSlide = (id) => {
 // --- PHILOSOPHY METHODS ---
 const openAddPhil = () => {
   isEditingPhil.value = false;
-  philForm.value = { title: '', description: '', icon: 'fa-solid fa-star' };
+  philForm.value = { title: '', description: '', icon: 'star' };
   isPhilModalOpen.value = true;
 };
 
@@ -154,7 +154,7 @@ const handleFileUpload = async (event, target) => {
           <div class="sections-grid">
             <div v-for="(section, key) in homeSettings.sections" :key="key" class="section-toggle-card">
               <div class="section-info">
-                <i :class="section.icon"></i>
+                <span class="material-symbols-outlined section-icon">{{ section.icon }}</span>
                 <div>
                   <strong>{{ section.label }}</strong>
                   <p>{{ section.description }}</p>
@@ -218,7 +218,7 @@ const handleFileUpload = async (event, target) => {
         <div class="card-body">
           <div class="phil-list-admin">
             <div v-for="item in homeSettings.philosophy" :key="item.id" class="phil-item-admin">
-              <i :class="item.icon" class="phil-icon"></i>
+              <span class="material-symbols-outlined phil-icon-ms">{{ item.icon.replace(/fa-solid /g, '').replace(/fa-/g, '').replace(/users/g, 'groups').replace(/futbol/g, 'sports_soccer').replace(/fire/g, 'whatshot') }}</span>
               <div class="phil-text">
                 <strong>{{ item.title }}</strong>
                 <p>{{ item.description }}</p>
@@ -305,8 +305,8 @@ const handleFileUpload = async (event, target) => {
           <textarea v-model="philForm.description" class="form-control" rows="3"></textarea>
         </div>
         <div class="form-group">
-          <label>Icono FontAwesome</label>
-          <input v-model="philForm.icon" type="text" class="form-control">
+          <label>Icono (Nombre Material Symbol o FontAwesome class)</label>
+          <input v-model="philForm.icon" type="text" class="form-control" placeholder="Ej: groups, sports_soccer, whatshot">
         </div>
       </div>
       <div class="admin-modal-footer">
@@ -476,7 +476,7 @@ const handleFileUpload = async (event, target) => {
   border: 1px solid var(--admin-border);
 }
 
-.phil-icon {
+.phil-icon-ms, .section-icon {
   font-size: 1.5rem;
   color: var(--admin-accent);
   width: 30px;
