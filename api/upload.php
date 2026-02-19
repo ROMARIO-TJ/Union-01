@@ -21,7 +21,7 @@ if (!isset($_FILES["file"])) {
 
 $file = $_FILES["file"];
 $ext = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
-$allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+$allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'];
 
 if (!in_array($ext, $allowed_exts)) {
     echo json_encode(["status" => "error", "message" => "Extensión no permitida"]);

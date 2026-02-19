@@ -1,50 +1,44 @@
 <?php
-// Script para manejar la subida de archivos (Fotos y PDFs)
-
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(["status" => "error", "message" => "Only POST allowed"]);
+$target_dir = "uploads/";
+
+if (!file_exists($target_dir)) {
+    mkdir($target_dir, 0777, true);
+}
+
+if (!isset($_FILES["file"])) {
+    echo json_encode(["status" => "error", "message" => "No se recibió archivo"]);
     exit;
 }
 
-if (!isset($_FILES['file'])) {
-    echo json_encode(["status" => "error", "message" => "No file uploaded"]);
+$file = $_FILES["file"];
+$ext = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
+$allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'];
+
+if (!in_array($ext, $allowed_exts)) {
+    echo json_encode(["status" => "error", "message" => "Extensión no permitida"]);
     exit;
 }
 
-$targetDir = "uploads/";
-if (!file_exists($targetDir)) {
-    mkdir($targetDir, 0777, true);
-}
+$filename = time() . "_" . uniqid() . "." . $ext;
+$target_file = $target_dir . $filename;
 
-$file = $_FILES['file'];
-$fileName = time() . "_" . basename($file["name"]);
-$targetFile = $targetDir . $fileName;
-$fileType = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
-
-// Validar extensiones
-$allowed = ['jpg', 'jpeg', 'png', 'pdf'];
-if (!in_array($fileType, $allowed)) {
-    echo json_encode(["status" => "error", "message" => "FileType not allowed"]);
-    exit;
-}
-
-if (move_uploaded_file($file["tmp_name"], $targetFile)) {
-    // Retornar la URL del archivo
+if (move_uploaded_file($file["tmp_name"], $target_file)) {
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
     $host = $_SERVER['HTTP_HOST'];
-    $path = str_replace(basename($_SERVER['PHP_SELF']), '', $_SERVER['PHP_SELF']);
-    $fileUrl = $protocol . "://" . $host . $path . $targetFile;
+    $path = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
     
-    echo json_encode(["status" => "success", "url" => $fileUrl]);
+    $url = $protocol . "://" . $host . $path . "/" . $target_file;
+    
+    echo json_encode(["status" => "success", "url" => $url]);
 } else {
-    echo json_encode(["status" => "error", "message" => "Upload failed"]);
+    echo json_encode(["status" => "error", "message" => "Error al guardar"]);
 }
-?>

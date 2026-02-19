@@ -1,45 +1,36 @@
-# Despliegue en Hostinger — Instrucciones rápidas
+# Despliegue en Hostinger — Unión Jeguera
 
-Pasos para desplegar este proyecto en Hostinger (PHP + MySQL):
+¡Todo está listo! Sigue estos pasos para poner tu sitio en línea:
 
-1) Preparar base de datos
-   - Crea una base de datos MySQL en el panel de Hostinger.
-   - Importa los esquemas SQL (desde el administrador de base de datos o phpMyAdmin):
-     - `database_setup.sql`
-     - `contact_messages_table.sql`
-     - `benefits_table.sql`
+## 1. Base de Datos
+*   Crea una base de datos en Hostinger.
+*   Importa los archivos SQL que están en la carpeta `sql/` (o los de la raíz de este paquete):
+    1.  `database_setup.sql` (Esquema general)
+    2.  `contact_messages_table.sql` (Para el buzón)
+    3.  `benefits_table.sql` (Beneficios de categorías)
 
-2) Configurar credenciales
-   - Edita `api/config.php` y `backend/config.php` en el servidor y coloca tus credenciales reales:
-     - `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`
-   - Alternativa segura: define variables de entorno en el panel (si Hostinger lo permite) y deja los placeholders.
+## 2. Conexión a la Base de Datos
+*   Abre el archivo `api/db_connect.php`.
+*   Asegúrate de que los campos `$db`, `$user` y `$pass` coincidan con los que creaste en Hostinger. (Actualmente ya tienen los valores `u671193113_unio_db` y `u671193113_union_10`).
 
-3) Archivos a subir
-   - Contenido de `dist/` (resultado de `npm run build`) — archivos estáticos del frontend.
-   - Carpeta `api/` completa (contiene `api.php`, `upload.php`, `contact.php`, etc.).
-   - Archivos SQL de la raíz para referencia.
+## 3. Subir Archivos
+*   Sube **TODO** el contenido de la carpeta `deploy_package/` a la carpeta `public_html/` de tu servidor.
+*   La estructura final debe verse así:
+    *   `public_html/index.html`
+    *   `public_html/assets/`
+    *   `public_html/api/`
+    *   `public_html/.htaccess`
+    *   `public_html/uploads/`
 
-4) Estructura recomendada en Hostinger (public_html):
-   - `public_html/index.html` ← contenido de `dist/index.html`
-   - `public_html/assets/...` ← contenido estático de `dist`
-   - `public_html/api/...` ← carpeta `api/` completa
-   - `public_html/uploads/` ← carpeta de uploads (asegurar permisos 755/775 según Hostinger)
+## 4. Permisos
+*   Crea la carpeta `uploads` dentro de `api/` (si no existe) o mantén la carpeta `uploads/` en la raíz.
+*   Asegúrate de que la carpeta de subidas tenga permisos **755** o **775** para que las fotos de los jugadores se guarden correctamente.
 
-5) Reglas para SPA y API (`.htaccess`)
-   - Añade el archivo `.htaccess` (se incluye aquí) en `public_html/` para enviar todas las rutas al `index.html`, excepto `/api/`.
+## 5. Accesos Administrador
+Recuerda tus nuevas credenciales:
+*   **Contenido**: Usuario: `union` / Clave: `union3023`
+*   **Finanzas**: Usuario: `roma` / Clave: `302304`
 
-6) Correo y formulario de contacto
-   - Si usarás `api/contact_v2.php` con SMTP, pon la contraseña en `$smtpPass` o configura un transport SMTP real.
-   - Usa `api/test_email.php` para diagnosticar envío (elimina después por seguridad).
-
-7) Pruebas finales
-   - Accede a tu dominio y prueba:
-     - GET `https://tu-dominio.com/api/api.php?action=categories`
-     - POST `https://tu-dominio.com/api/contact.php` (JSON)
-     - POST `https://tu-dominio.com/api/upload.php` (form-data)
-
-8) Seguridad y limpieza
-   - Quita o restringe `api/test_email.php` después de las pruebas.
-   - No dejes credenciales en el repositorio.
-
-Si quieres, genero aquí el paquete zip con `dist/` + `api/` + SQL y el `.htaccess` listo para subir. ¿Lo creo? 
+## 6. Buzón de Contacto
+*   Los mensajes llegarán automáticamente a: `union_user@unionjaguera.com`.
+*   También puedes consultarlos directamente en la tabla `contact_messages` de tu base de datos.

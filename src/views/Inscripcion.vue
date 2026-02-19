@@ -348,7 +348,11 @@ const finishRegistration = async () => {
 
     isSubmitting.value = true;
     try {
-        const success = await playersStore.addPlayer(formData.value);
+        const payload = {
+            ...formData.value,
+            registrationDate: new Date().toISOString().split('T')[0]
+        };
+        const success = await playersStore.addPlayer(payload);
         if (success) {
             currentStep.value = 4;
             window.scrollTo({ top: 300, behavior: 'smooth' });

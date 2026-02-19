@@ -1,17 +1,35 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteBase /
+  
+  # Forzar HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # Don't rewrite requests to existing files or directories
+  # Forzar WWW (para coincidir con el sitemap)
+  RewriteCond %{HTTP_HOST} !^www\. [NC]
+  RewriteRule ^ https://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Evitar que las peticiones a la API o subidas sean capturadas por Vue
+  RewriteRule ^(api|uploads) - [L]
+
+  # Si el archivo o carpeta existe físicamente, sírvelo directamente
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Allow direct access to API folder
-  RewriteRule ^api/ - [L]
-
-  # All other requests go to index.html (SPA)
-  RewriteRule ^ index.html [L]
+  # Si no existe, redirige todo al index.html (para que Vue maneje la ruta)
+  RewriteCond %{REQUEST_URI} !index\.html
+  RewriteRule . /index.html [L]
 </IfModule>
 
-# Prevent directory listing
-Options -Indexes
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType text/css .css
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|xml|gz|html)$">
+    Header append Vary: Accept-Encoding
+  </FilesMatch>
+</IfModule>

@@ -1,10 +1,11 @@
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../store/authStore';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 const isLogin = ref(true);
 
@@ -29,13 +30,16 @@ const handleLogin = () => {
   loading.value = true;
   error.value = '';
 
-  const result = authStore.login(loginForm.value.email, loginForm.value.password);
+  const result = authStore.login(loginForm.value.email, loginForm.value.password, 'parent');
 
   if (result.success) {
-    if (result.user.role === 'padre_familia') {
-      router.push('/admin/portal/hijo');
+    if (route.query.redirect) {
+      router.push({
+        name: route.query.redirect,
+        query: { categoria: route.query.categoria }
+      });
     } else {
-      error.value = 'Esta cuenta no es de padre de familia. Usa el portal administrativo.';
+      router.push('/admin/portal/hijo');
     }
   } else {
     error.value = result.error;
@@ -43,7 +47,7 @@ const handleLogin = () => {
   loading.value = false;
 };
 
-const handleRegister = () => {
+const handleRegister = async () => {
   if (!registerForm.value.name || !registerForm.value.email || !registerForm.value.password) {
     error.value = 'Por favor, completa todos los campos obligatorios';
     return;
@@ -60,18 +64,26 @@ const handleRegister = () => {
   loading.value = true;
   error.value = '';
 
-  const result = authStore.register({
+  const result = await authStore.register({
     name: registerForm.value.name,
     email: registerForm.value.email,
     phone: registerForm.value.phone,
     idNumber: registerForm.value.idNumber,
-    password: registerForm.value.password
+    password: registerForm.value.password,
+    role: 'padre_familia'
   });
 
   if (result.success) {
-    router.push('/admin/portal/hijo');
+    if (route.query.redirect) {
+      router.push({
+        name: route.query.redirect,
+        query: { categoria: route.query.categoria }
+      });
+    } else {
+      router.push('/admin/portal/hijo');
+    }
   } else {
-    error.value = result.error;
+    error.value = result.error || 'Error al registrar usuario';
   }
   loading.value = false;
 };

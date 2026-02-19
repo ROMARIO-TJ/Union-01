@@ -9,8 +9,8 @@ const { isDarkMode, toggleDarkMode } = useTheme();
 const globalSettings = useGlobalSettingsStore();
 const authStore = useAuthStore();
 
-const isParentLoggedIn = computed(() => authStore.isAuthenticated && authStore.user?.role === 'padre_familia');
-const parentName = computed(() => authStore.user?.name?.split(' ')[0] || 'Mi Portal');
+const isParentLoggedIn = computed(() => authStore.isParentAuthenticated);
+const parentName = computed(() => authStore.parentUser?.name?.split(' ')[0] || 'Mi Portal');
 
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value;
@@ -44,6 +44,16 @@ const closeMenu = () => {
           <li v-if="globalSettings.modules.news.enabled"><router-link to="/noticias"
               @click="closeMenu">Noticias</router-link></li>
           <li><router-link to="/contacto" @click="closeMenu">Contacto</router-link></li>
+          
+          <!-- Portal Mobile CTA (Visible only in mobile menu) -->
+          <li class="mobile-only">
+            <router-link v-if="!isParentLoggedIn" to="/portal-padres" class="btn btn-primary btn-inscribe-mobile" @click="closeMenu">
+              <i class="fa-solid fa-user-shield"></i> Portal Padres
+            </router-link>
+            <router-link v-else to="/admin/portal/hijo" class="btn btn-primary btn-inscribe-mobile" @click="closeMenu">
+              <i class="fa-solid fa-child"></i> {{ parentName }}
+            </router-link>
+          </li>
         </ul>
       </nav>
 
@@ -56,11 +66,11 @@ const closeMenu = () => {
           </span>
         </button>
 
-        <!-- Portal Padres CTA -->
-        <router-link v-if="!isParentLoggedIn" to="/portal-padres" class="btn btn-primary btn-inscribe">
+        <!-- Portal Padres CTA (Hidden on mobile via CSS) -->
+        <router-link v-if="!isParentLoggedIn" to="/portal-padres" class="btn btn-primary btn-inscribe desktop-only">
           <i class="fa-solid fa-user-shield" style="margin-right: 0.4rem;"></i> Portal Padres
         </router-link>
-        <router-link v-else to="/admin/portal/hijo" class="btn btn-primary btn-inscribe">
+        <router-link v-else to="/admin/portal/hijo" class="btn btn-primary btn-inscribe desktop-only">
           <i class="fa-solid fa-child" style="margin-right: 0.4rem;"></i> {{ parentName }}
         </router-link>
 
@@ -224,6 +234,10 @@ const closeMenu = () => {
   transform: translateY(-7px) rotate(-45deg);
 }
 
+.mobile-only {
+  display: none;
+}
+
 @media (max-width: 992px) {
   .navbar__menu {
     gap: 1.5rem;
@@ -231,6 +245,27 @@ const closeMenu = () => {
 }
 
 @media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+  
+  .mobile-only {
+    display: block;
+    width: 100%;
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(17, 212, 66, 0.1);
+  }
+
+  .btn-inscribe-mobile {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem !important;
+    font-size: 1rem !important;
+  }
+
   .navbar__toggle {
     display: flex;
   }
@@ -241,12 +276,13 @@ const closeMenu = () => {
     left: 0;
     width: 100%;
     background: var(--bg-primary);
-    padding: 2rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    transform: translateY(-10px);
+    padding: 2.5rem 1.5rem;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    transform: translateY(-20px);
     opacity: 0;
     pointer-events: none;
-    transition: var(--transition);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    border-bottom: 2px solid var(--primary-color);
   }
 
   .navbar.active {
@@ -257,11 +293,19 @@ const closeMenu = () => {
 
   .navbar__menu {
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
+    align-items: flex-start;
+  }
+  
+  .navbar__menu li {
+    width: 100%;
   }
 
-  .btn-inscribe {
-    display: none;
+  .navbar__menu a {
+    font-size: 1.1rem;
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0;
   }
 }
 </style>

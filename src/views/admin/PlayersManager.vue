@@ -207,8 +207,27 @@
                                 <span class="value">{{ selectedPlayer.phone }}</span>
                             </div>
                             <div class="info-box">
-                                <span class="label">Email</span>
-                                <span class="value">{{ selectedPlayer.email }}</span>
+                                <span class="label">Email Acudiente (Para Portal)</span>
+                                <div v-if="!isEditingEmail" class="value-with-action">
+                                    <span class="value">{{ selectedPlayer.email || 'Sin correo' }}</span>
+                                    <button @click="startEditEmail" class="btn-mini-edit" title="Vincular Correo">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                </div>
+                                <div v-else class="value-with-action">
+                                    <input v-model="tempEmail" type="email" class="admin-input-mini" placeholder="correo@ejemplo.com">
+                                    <div class="mini-actions">
+                                        <button @click="saveEmail" class="btn-mini-save" :disabled="playersStore.isLoading">
+                                            <i class="fa-solid fa-check"></i>
+                                        </button>
+                                        <button @click="isEditingEmail = false" class="btn-mini-cancel">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <small v-if="!selectedPlayer.email" style="color: #e67e22; font-size: 0.7rem; margin-top: 2px;">
+                                    * Vincular email para habilitar Portal de Padres
+                                </small>
                             </div>
                             <div class="info-box full">
                                 <span class="label">Dirección</span>
@@ -351,14 +370,41 @@ const filteredPlayers = computed(() => {
 });
 
 
+const isEditingEmail = ref(false);
+const tempEmail = ref('');
+
 const viewDetails = (player) => {
     selectedPlayer.value = { ...player };
+    isEditingEmail.value = false;
     isModalOpen.value = true;
 };
 
 const closeModal = () => {
     isModalOpen.value = false;
     selectedPlayer.value = null;
+    isEditingEmail.value = false;
+};
+
+const startEditEmail = () => {
+    tempEmail.value = selectedPlayer.value.email || '';
+    isEditingEmail.value = true;
+};
+
+const saveEmail = async () => {
+    if (!tempEmail.value || !tempEmail.value.includes('@')) {
+        alert('Por favor ingressa un correo válido');
+        return;
+    }
+    
+    try {
+        const success = await playersStore.updateParentEmail(selectedPlayer.value.id, tempEmail.value);
+        if (success) {
+            selectedPlayer.value.email = tempEmail.value;
+            isEditingEmail.value = false;
+        }
+    } catch (e) {
+        alert('Error al actualizar: ' + e.message);
+    }
 };
 
 const updateStatus = async (status) => {
@@ -773,5 +819,57 @@ const deletePlayer = async (id) => {
     .player-profile-grid {
         grid-template-columns: 1fr;
     }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .info-box.full {
+        grid-column: span 1;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .btn-status {
+        width: 100%;
+    }
+}
+/* MINI EDIT STYLES */
+.value-with-action {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+}
+
+.btn-mini-edit, .btn-mini-save, .btn-mini-cancel {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.3rem;
+    transition: transform 0.2s;
+}
+
+.btn-mini-edit { color: #3498db; }
+.btn-mini-save { color: #1fa774; font-size: 1rem; }
+.btn-mini-cancel { color: #e74c3c; font-size: 1rem; }
+
+.btn-mini-edit:hover { transform: scale(1.1); }
+
+.admin-input-mini {
+    padding: 0.4rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.mini-actions {
+    display: flex;
+    gap: 0.2rem;
 }
 </style>

@@ -1,12 +1,17 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 export const useAuthStore = defineStore('auth', () => {
-    const isAuthenticated = ref(false);
-    const user = ref(null);
+    // ADMIN STATE
+    const adminUser = ref(null);
+    const isAdminAuthenticated = ref(false);
+
+    // PARENT STATE
+    const parentUser = ref(null);
+    const isParentAuthenticated = ref(false);
+
     const parents = ref([]); // Lista de padres registrados dinámicamente
 
-    // Credenciales por defecto
     const ROLES = {
         ADMIN_CONTENIDO: 'admin_contenido',
         ADMIN_FINANCIERO: 'admin_financiero',
@@ -14,23 +19,34 @@ export const useAuthStore = defineStore('auth', () => {
     };
 
     const CREDENTIALS = [
-        { username: 'admin', role: ROLES.ADMIN_CONTENIDO, password: 'admin123', name: 'Administrador de Contenido' },
-        { username: 'financiero', role: ROLES.ADMIN_FINANCIERO, password: 'financiero123', name: 'Administrador Financiero' },
-        { username: 'padre', role: ROLES.PADRE_FAMILIA, password: 'padre123', name: 'Padre Demo', child_id: 1 },
-        { username: 'padre@prueba.com', role: ROLES.PADRE_FAMILIA, password: '123456', name: 'Usuario Prueba' },
-        { username: 'union', role: ROLES.ADMIN_CONTENIDO, password: 'union3023', name: 'Unión Jeguera' }
+        { username: 'union', role: ROLES.ADMIN_CONTENIDO, password: 'union3023', name: 'Administración Unión Jeguera' },
+        { username: 'roma', role: ROLES.ADMIN_FINANCIERO, password: '302304', name: 'Finanzas Unión Jeguera' },
+        { username: 'padre', role: ROLES.PADRE_FAMILIA, password: 'padre123', name: 'Padre Demo', child_id: 1 }
     ];
 
     // Inicializar desde localStorage
     const initAuth = () => {
-        const savedAuth = localStorage.getItem('auth_user');
-        if (savedAuth) {
+        // Admin init
+        const savedAdmin = localStorage.getItem('auth_admin');
+        if (savedAdmin) {
             try {
-                const session = JSON.parse(savedAuth);
-                isAuthenticated.value = true;
-                user.value = session;
+                const session = JSON.parse(savedAdmin);
+                isAdminAuthenticated.value = true;
+                adminUser.value = session;
             } catch (e) {
-                localStorage.removeItem('auth_user');
+                localStorage.removeItem('auth_admin');
+            }
+        }
+
+        // Parent init
+        const savedParent = localStorage.getItem('auth_parent');
+        if (savedParent) {
+            try {
+                const session = JSON.parse(savedParent);
+                isParentAuthenticated.value = true;
+                parentUser.value = session;
+            } catch (e) {
+                localStorage.removeItem('auth_parent');
             }
         }
 
@@ -41,8 +57,8 @@ export const useAuthStore = defineStore('auth', () => {
         }
     };
 
-    // Login
-    const login = (username, password) => {
+    // Generic Login
+    const login = (username, password, type = 'admin') => {
         // Primero buscar en los predefinidos
         let foundUser = CREDENTIALS.find(u => u.username === username && u.password === password);
 
@@ -55,10 +71,24 @@ export const useAuthStore = defineStore('auth', () => {
         }
 
         if (foundUser) {
-            isAuthenticated.value = true;
             const { password, ...userData } = foundUser;
-            user.value = userData;
-            localStorage.setItem('auth_user', JSON.stringify(userData));
+
+            if (type === 'admin') {
+                if (userData.role === ROLES.PADRE_FAMILIA) {
+                    return { success: false, error: 'Esta cuenta no tiene permisos administrativos.' };
+                }
+                isAdminAuthenticated.value = true;
+                adminUser.value = userData;
+                localStorage.setItem('auth_admin', JSON.stringify(userData));
+            } else {
+                if (userData.role !== ROLES.PADRE_FAMILIA) {
+                    return { success: false, error: 'Esta cuenta no es de padre de familia.' };
+                }
+                isParentAuthenticated.value = true;
+                parentUser.value = userData;
+                localStorage.setItem('auth_parent', JSON.stringify(userData));
+            }
+
             return { success: true, user: userData };
         }
         return { success: false, error: 'Credenciales incorrectas' };
@@ -78,23 +108,41 @@ export const useAuthStore = defineStore('auth', () => {
         parents.value.push(newParent);
         localStorage.setItem('registered_parents', JSON.stringify(parents.value));
 
-        // Auto login
-        return login(parentData.email, parentData.password);
+        // Auto login as parent
+        return login(parentData.email, parentData.password, 'parent');
     };
 
-    const logout = () => {
-        isAuthenticated.value = false;
-        user.value = null;
-        localStorage.removeItem('auth_user');
+    const logout = (type = 'admin') => {
+        if (type === 'admin') {
+            isAdminAuthenticated.value = false;
+            adminUser.value = null;
+            localStorage.removeItem('auth_admin');
+        } else {
+            isParentAuthenticated.value = false;
+            parentUser.value = null;
+            localStorage.removeItem('auth_parent');
+        }
     };
 
-    const hasRole = (role) => user.value?.role === role;
+    // Keep legacy properties for compatibility during migration if needed, 
+    // but better to update everywhere
+    const isAuthenticated = computed(() => isAdminAuthenticated.value || isParentAuthenticated.value);
+    const user = computed(() => adminUser.value || parentUser.value);
+
+    const hasRole = (role, type = 'admin') => {
+        const currentUser = type === 'admin' ? adminUser.value : parentUser.value;
+        return currentUser?.role === role;
+    };
 
     initAuth();
 
     return {
-        isAuthenticated,
-        user,
+        adminUser,
+        isAdminAuthenticated,
+        parentUser,
+        isParentAuthenticated,
+        isAuthenticated, // Legacy (or combined)
+        user, // Legacy (or combined)
         ROLES,
         login,
         register,

@@ -20,19 +20,11 @@ const handleLogin = () => {
   loading.value = true;
   error.value = '';
 
-  const result = authStore.login(username.value, password.value);
-
-  if (result.success) {
-    // Solo permitir acceso a roles administrativos
-    const adminRoles = ['admin_contenido', 'admin_financiero'];
-    if (adminRoles.includes(result.user.role)) {
-      router.push('/admin');
-    } else {
-      authStore.logout();
-      error.value = 'Acceso denegado. Este portal es solo para administradores.';
-    }
-  } else {
+  const result = authStore.login(username.value, password.value, 'admin');
+  if (!result.success) {
     error.value = result.error;
+  } else {
+    router.push('/admin');
   }
 
   loading.value = false;

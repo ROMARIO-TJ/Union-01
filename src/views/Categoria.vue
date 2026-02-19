@@ -40,11 +40,12 @@
                             </div>
                         </div>
 
-                        <router-link :to="{ name: 'Inscripcion', query: { categoria: categoria.name } }"
+                        <button 
+                            @click="handleJoinCategory(categoria.name)"
                             class="btn-inscribir-mini">
                             Inscribirse
                             <i class="fa-solid fa-arrow-right"></i>
-                        </router-link>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -113,15 +114,29 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import PageHero from '../components/PageHero.vue';
 import SponsorsCarousel from '../components/SponsorsCarousel.vue';
 import clubHeroImg from '../assets/img/heroes/club_hero.png';
 
 const categoryStore = useCategoryStore();
+const authStore = useAuthStore();
+const router = useRouter();
 const lightboxOpen = ref(false);
 const selectedTeam = ref(null);
 const catCarousel = ref(null);
+
+const handleJoinCategory = (categoryName) => {
+    if (authStore.isParentAuthenticated) {
+        // Si ya está logueado, lo mandamos al portal a inscribir
+        router.push({ name: 'PortalHijo', query: { categoria: categoryName } });
+    } else {
+        // Si no, lo mandamos a que se registre/loguee primero
+        router.push({ name: 'PortalPadres', query: { redirect: 'PortalHijo', categoria: categoryName } });
+    }
+};
 
 const scrollCatLeft = () => {
     if (catCarousel.value) {
@@ -626,11 +641,34 @@ const closeLightbox = () => {
 
 @media (max-width: 768px) {
     .section-title {
-        font-size: 2.5rem;
+        font-size: 2.2rem;
+    }
+
+    .categorias-section, .info-section, .teams-gallery {
+        padding: 4rem 0;
     }
 
     .categoria-card-mini {
-        flex: 0 0 300px;
+        flex: 0 0 280px;
+        padding: 2rem 1.5rem;
+    }
+
+    .benefit-item {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .section-title {
+        font-size: 1.8rem;
+    }
+
+    .categoria-card-mini {
+        flex: 0 0 250px;
+    }
+
+    .gallery-grid {
+        grid-template-columns: 1fr;
     }
 }
 </style>

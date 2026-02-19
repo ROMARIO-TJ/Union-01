@@ -34,10 +34,14 @@ const stats = computed(() => {
 
   // Stats para Admin Financiero
   if (role.value === 'admin_financiero') {
+    const paidPlayers = playersStore.players.filter(p => p.paymentStatus === 'Al Día');
+    const pendingPlayers = playersStore.players.filter(p => p.paymentStatus === 'Pendiente' || !p.paymentStatus);
+    const totalCollected = paidPlayers.length * 50000;
+
     items.push(
-      { name: 'Pagos Mes', value: '$2,5M', icon: 'fa-solid fa-dollar-sign', class: 'news', link: '/admin/financiero/pagos' },
-      { name: 'Pendientes', value: '12', icon: 'fa-solid fa-clock', class: 'club', link: '/admin/financiero/pagos' },
-      { name: 'Pas y Salvos', value: '5', icon: 'fa-solid fa-file-circle-check', class: 'matches', link: '/admin/financiero/paz-y-salvo' },
+      { name: 'Pagos Mes', value: `$${totalCollected.toLocaleString()}`, icon: 'fa-solid fa-dollar-sign', class: 'news', link: '/admin/financiero/pagos' },
+      { name: 'Pendientes', value: pendingPlayers.length, icon: 'fa-solid fa-clock', class: 'club', link: '/admin/financiero/pagos' },
+      { name: 'Paz y Salvos', value: paidPlayers.length, icon: 'fa-solid fa-file-circle-check', class: 'matches', link: '/admin/financiero/paz-y-salvo' },
       { name: 'Jugadores', value: playersStore.players.length, icon: 'fa-solid fa-users', class: 'players', link: '/admin/players' },
       { name: 'Categorías', value: categoryStore.categories.length, icon: 'fa-solid fa-tags', class: 'categories', link: '/admin/categories' }
     );
@@ -53,6 +57,9 @@ const upcomingMatches = computed(() => matchesStore.getUpcomingMatches().slice(0
 onMounted(() => {
   if (role.value === 'padre_familia') {
     router.replace('/admin/portal/hijo');
+  } else {
+    // Cargar datos iniciales para admin
+    playersStore.initPlayers?.();
   }
 });
 </script>

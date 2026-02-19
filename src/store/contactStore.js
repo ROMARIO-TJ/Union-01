@@ -175,6 +175,19 @@ export const useContactStore = defineStore('contact', () => {
         }
     };
 
+    const sendMessage = async (messageData) => {
+        isLoading.value = true;
+        try {
+            const result = await apiService.request('contact', 'POST', messageData);
+            return result.status === 'success';
+        } catch (err) {
+            console.error('Error sending message:', err);
+            return false;
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
     initContact();
 
     return {
@@ -187,6 +200,7 @@ export const useContactStore = defineStore('contact', () => {
         updateFooterInfo,
         addSocialLink,
         updateSocialLink,
-        deleteSocialLink
+        deleteSocialLink,
+        sendMessage
     };
 });

@@ -156,12 +156,12 @@ const routes = [
       {
         path: "portal/pagos",
         name: "PortalPagos",
-        component: () => import("../views/admin/financiero/Pagos.vue"), // Placeholder
+        component: () => import("../views/admin/portal/PortalPagos.vue"),
       },
       {
         path: "portal/paz-y-salvo",
         name: "PortalPazYSalvo",
-        component: () => import("../views/admin/financiero/PazySalvo.vue"), // Placeholder
+        component: () => import("../views/admin/portal/PortalPazySalvo.vue"),
       },
       {
         path: "portal/inscripcion",
@@ -194,39 +194,29 @@ const router = createRouter({
 router.beforeEach(async (to, from) => {
   const authStore = useAuthStore();
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const isParentRoute = to.path.startsWith('/admin/portal');
 
   // 1. Check authentication
-  if (requiresAuth && !authStore.isAuthenticated) {
-    // Si es una ruta del portal de padres, mandar al portal público
-    if (to.path.startsWith('/admin/portal')) {
+  if (requiresAuth) {
+    if (isParentRoute && !authStore.isParentAuthenticated) {
       return { name: 'PortalPadres' };
     }
-    return { name: 'AdminLogin' };
+    if (!isParentRoute && !authStore.isAdminAuthenticated) {
+      return { name: 'AdminLogin' };
+    }
   }
 
-  if (to.name === 'AdminLogin' && authStore.isAuthenticated) {
-    // Si es padre, mandarlo a su portal
-    if (authStore.user?.role === 'padre_familia') {
-      return { path: '/admin/portal/hijo' };
-    }
+  // 2. Redirect if already logged in (Login pages)
+  if (to.name === 'AdminLogin' && authStore.isAdminAuthenticated) {
     return { name: 'AdminDashboard' };
   }
 
-  // Redirigir padres ya logueados fuera del portal de login
-  if (to.name === 'PortalPadres' && authStore.isAuthenticated) {
-    if (authStore.user?.role === 'padre_familia') {
-      return { path: '/admin/portal/hijo' };
-    }
-    return { name: 'AdminDashboard' };
+  if (to.name === 'PortalPadres' && authStore.isParentAuthenticated) {
+    return { path: '/admin/portal/hijo' };
   }
 
   // 3. Proteger rutas admin de padres de familia
-  if (authStore.isAuthenticated && authStore.user?.role === 'padre_familia') {
-    // Si la ruta es administrativa (/admin...) pero NO es del portal, bloquear
-    if (to.path.startsWith('/admin') && !to.path.startsWith('/admin/portal')) {
-      return { path: '/admin/portal/hijo' };
-    }
-  }
+  // (Punto 1 ya asegura que si no es AdminAuthenticated no entre a rutas que requieren auth)
 
   // 4. Check module access for non-admin routes
   if (!to.path.startsWith('/admin')) {

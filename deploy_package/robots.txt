@@ -1,6 +1,10 @@
 User-agent: *
 Allow: /
-Disallow: /admin
+Allow: /assets/
+Disallow: /admin/
 Disallow: /api/
+Disallow: /config/
+Disallow: /vendor/
+Disallow: /private/
 
 Sitemap: https://www.unionjaguera.com/sitemap.xml

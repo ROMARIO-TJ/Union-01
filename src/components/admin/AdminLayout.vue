@@ -13,15 +13,21 @@ const toggleMobileMenu = () => {
 };
 
 const logout = () => {
-  const isParent = authStore.user?.role === 'padre_familia';
-  authStore.logout();
+  const isParentPortal = route.path.startsWith('/admin/portal');
 
-  if (isParent) {
+  if (isParentPortal) {
+    authStore.logout('parent');
     router.push('/portal-padres');
   } else {
+    authStore.logout('admin');
     router.push('/admin/login');
   }
 };
+
+const currentUser = computed(() => {
+  const isParentPortal = route.path.startsWith('/admin/portal');
+  return isParentPortal ? authStore.parentUser : authStore.adminUser;
+});
 
 const closeMenuOnMobile = () => {
   if (window.innerWidth <= 768) {
@@ -30,14 +36,16 @@ const closeMenuOnMobile = () => {
 };
 
 const navigation = computed(() => {
-  const role = authStore.user?.role;
+  const userRole = currentUser.value?.role;
   const items = [];
 
-  // Dashboard central
-  items.push({ name: 'Dashboard', to: '/admin', icon: 'fa-solid fa-chart-line' });
+  // Dashboard central (Solo para administradores, no para padres)
+  if (userRole === 'admin_contenido' || userRole === 'admin_financiero') {
+    items.push({ name: 'Dashboard', to: '/admin', icon: 'fa-solid fa-chart-line' });
+  }
 
   // Gestión de Contenido (Admin General o Especializado)
-  if (role === 'admin_contenido' || !role) {
+  if (userRole === 'admin_contenido' || !userRole) {
     items.push(
       { name: 'Noticias', to: '/admin/news', icon: 'fa-solid fa-newspaper' },
       { name: 'Partidos', to: '/admin/matches', icon: 'fa-solid fa-futbol' },
@@ -54,7 +62,7 @@ const navigation = computed(() => {
   }
 
   // Administración Financiera
-  if (role === 'admin_financiero') {
+  if (userRole === 'admin_financiero') {
     items.push(
       { name: 'Pagos', to: '/admin/financiero/pagos', icon: 'fa-solid fa-credit-card' },
       { name: 'Paz y Salvo', to: '/admin/financiero/paz-y-salvo', icon: 'fa-solid fa-file-invoice' },
@@ -65,11 +73,10 @@ const navigation = computed(() => {
   }
 
   // Portal de Padres
-  if (role === 'padre_familia') {
+  if (userRole === 'padre_familia') {
     items.push(
       { name: 'Mi Hijo', to: '/admin/portal/hijo', icon: 'fa-solid fa-child' },
-      { name: 'Mis Pagos', to: '/admin/portal/pagos', icon: 'fa-solid fa-wallet' },
-      { name: 'Paz y Salvo', to: '/admin/portal/paz-y-salvo', icon: 'fa-solid fa-file-circle-check' }
+      { name: 'Mis Pagos', to: '/admin/portal/pagos', icon: 'fa-solid fa-wallet' }
     );
   }
 
@@ -117,11 +124,12 @@ const navigation = computed(() => {
             <i class="fa-solid fa-bars"></i>
           </button>
           <div class="admin-header__title">
-            <h1>Panel de {{ authStore.user?.name || 'Administración' }}</h1>
+            <h1>Panel de {{ currentUser?.name || 'Administración' }}</h1>
           </div>
         </div>
         <div class="admin-header__user">
-          <span class="welcome-text">Bienvenido, <strong>{{ authStore.user?.username }}</strong></span>
+          <span class="welcome-text">Bienvenido, <strong>{{ currentUser?.name || currentUser?.username
+          }}</strong></span>
           <div class="user-avatar-mini">
             <i class="fa-solid fa-user-shield"></i>
           </div>

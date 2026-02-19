@@ -163,7 +163,7 @@ const showSuccess = ref(false);
 
 const validateForm = () => {
     let isValid = true;
-
+    
     // Reset errors
     Object.keys(errors).forEach(key => errors[key] = '');
 
@@ -209,21 +209,31 @@ const handleSubmit = async () => {
     isSubmitting.value = true;
     showSuccess.value = false;
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+        const success = await contactStore.sendMessage({
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            subject: formData.subject,
+            message: formData.message
+        });
 
-    // Show success message
-    showSuccess.value = true;
-    isSubmitting.value = false;
-
-    // Reset form
-    setTimeout(() => {
-        Object.keys(formData).forEach(key => formData[key] = '');
-        showSuccess.value = false;
-    }, 3000);
-
-    // En producción, aquí enviarías los datos a tu backend
-    console.log('Form submitted:', formData);
+        if (success) {
+            showSuccess.value = true;
+            // Reset form
+            Object.keys(formData).forEach(key => formData[key] = '');
+            setTimeout(() => {
+                showSuccess.value = false;
+            }, 5000);
+        } else {
+            alert('Hubo un error al enviar el mensaje. Por favor intenta de nuevo.');
+        }
+    } catch (err) {
+        console.error('Error in handleSubmit:', err);
+        alert('Ocurrió un error inesperado.');
+    } finally {
+        isSubmitting.value = false;
+    }
 };
 </script>
 

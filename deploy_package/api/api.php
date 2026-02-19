@@ -1,314 +1,312 @@
 <?php
-require_once 'config.php';
+header('Content-Type: application/json');
+// Forzar error reporting (TEMPORAL PARA DEBUG)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-$action = $_GET['action'] ?? '';
-$method = $_SERVER['REQUEST_METHOD'];
+set_exception_handler(function($e) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Error Crítico: ' . $e->getMessage()]);
+    exit;
+});
 
-// Helper para leer JSON del body
-function getJsonInput() {
-    return json_decode(file_get_contents("php://input"), true);
+if (!file_exists('db_connect.php')) {
+    throw new Exception("El archivo db_connect.php no existe en la carpeta api/");
 }
 
-$conn = getConn();
+require_once 'db_connect.php';
+
+$action = $_GET['action'] ?? '';
+$input = json_decode(file_get_contents('php://input'), true);
+
+// Soporte para servidores que bloquean DELETE/PUT/PATCH
+// Se puede enviar el método real en la URL o en el JSON como '_method'
+$method = $_SERVER['REQUEST_METHOD'];
+if (isset($_GET['_method'])) $method = strtoupper($_GET['_method']);
+if (isset($input['_method'])) $method = strtoupper($input['_method']);
+
+$id = $_GET['id'] ?? null;
+if (!$id && isset($input['id'])) {
+    $id = $input['id'];
+}
+
+function response($status, $data = null) {
+    echo json_encode(['status' => $status, 'data' => $data]);
+    exit;
+}
+
+function success($msg = "Operación exitosa") {
+    echo json_encode(['status' => 'success', 'message' => $msg]);
+    exit;
+}
 
 switch ($action) {
     case 'news':
-        handleNews($method, $conn);
-        break;
-    case 'players':
-        handlePlayers($method, $conn);
+        handleCrud($pdo, 'news', $method, $id, $input);
         break;
     case 'matches':
-        handleMatches($method, $conn);
-        break;
-    case 'payments':
-        handlePayments($method, $conn);
-        break;
-    case 'expenses':
-        handleExpenses($method, $conn);
+        handleCrud($pdo, 'matches', $method, $id, $input);
         break;
     case 'categories':
-        handleCategories($method, $conn);
-        break;
-    case 'settings':
-        handleSettings($method, $conn);
-        break;
-    case 'contact-messages':
-        handleContactMessages($method, $conn);
+        handleCrud($pdo, 'categories', $method, $id, $input);
         break;
     case 'benefits':
-        handleBenefits($method, $conn);
+        handleCrud($pdo, 'benefits', $method, $id, $input);
+        break;
+    case 'players':
+        handlePlayers($pdo, $method, $id, $input);
+        break;
+    case 'sponsors':
+        handleCrud($pdo, 'sponsors', $method, $id, $input);
+        break;
+    case 'payments':
+        handleCrud($pdo, 'payments', $method, $id, $input);
+        break;
+    case 'expenses':
+        handleCrud($pdo, 'expenses', $method, $id, $input);
+        break;
+    case 'gallery':
+        handleCrud($pdo, 'gallery', $method, $id, $input);
+        break;
+    case 'settings':
+        handleSettings($pdo, $method, $input);
+        break;
+    case 'contact':
+        handleContact($pdo, $input);
         break;
     default:
-        echo json_encode(["status" => "error", "message" => "Action not found"]);
-        break;
+        response('error', 'Acción no válida: ' . $action);
 }
 
-// --- HANDLERS ---
+function handleContact($pdo, $input) {
+    if (empty($input['name']) || empty($input['email']) || empty($input['message'])) {
+        response('error', 'Faltan campos obligatorios');
+    }
 
-function handleSettings($method, $conn) {
+    $to = "union_user@unionjaguera.com";
+    $subject = "Nuevo mensaje de contacto: " . ($input['subject'] ?? 'Página Web');
+    
+    // HTML Message
+    $message = "
+    <html>
+    <head><style>body{font-family:sans-serif;line-height:1.6;color:#333;}.header{background:#1fa774;color:white;padding:20px; text-align:center;}.content{padding:20px; background:#f9f9f9; border:1px solid #eee;}</style></head>
+    <body>
+        <div class='header'><h2>Nuevo Mensaje - Unión Jaguera</h2></div>
+        <div class='content'>
+            <p><strong>De:</strong> " . htmlspecialchars($input['name']) . " (" . htmlspecialchars($input['email']) . ")</p>
+            <p><strong>Teléfono:</strong> " . htmlspecialchars($input['phone'] ?? 'N/A') . "</p>
+            <p><strong>Asunto:</strong> " . htmlspecialchars($input['subject'] ?? 'N/A') . "</p>
+            <hr>
+            <p><strong>Mensaje:</strong></p>
+            <p>" . nl2br(htmlspecialchars($input['message'])) . "</p>
+        </div>
+    </body>
+    </html>";
+
+    $headers = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+    $headers .= "From: Union Jaguera Site <union_user@unionjaguera.com>" . "\r\n";
+    $headers .= "Reply-To: " . $input['email'] . "\r\n";
+
+    $mailSent = @mail($to, $subject, $message, $headers);
+
+    // Save to Database too
+    try {
+        $stmt = $pdo->prepare("INSERT INTO contact_messages (name, email, phone, subject, message, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([
+            $input['name'],
+            $input['email'],
+            $input['phone'] ?? '',
+            $input['subject'] ?? '',
+            $input['message']
+        ]);
+    } catch (Exception $e) {
+        // Log error but don't stop if mail was sent
+    }
+
+    if ($mailSent) {
+        success('Mensaje enviado correctamente');
+    } else {
+        response('error', 'No se pudo enviar el correo, pero el mensaje fue guardado en la base de datos.');
+    }
+}
+
+function handleCrud($pdo, $table, $method, $id, $input) {
+    try {
+        if ($method === 'GET') {
+            if ($id) {
+                $stmt = $pdo->prepare("SELECT * FROM $table WHERE id = ?");
+                $stmt->execute([$id]);
+                $res = $stmt->fetch();
+                echo json_encode($res ? $res : []);
+            } else {
+                // Soporte para filtros dinámicos (ej: ?action=players&parentEmail=...)
+                $filters = $_GET;
+                unset($filters['action'], $filters['id'], $filters['_method']);
+                
+                if (empty($filters)) {
+                    $stmt = $pdo->query("SELECT * FROM $table ORDER BY id DESC");
+                    echo json_encode($stmt->fetchAll());
+                } else {
+                    // Obtener columnas reales para filtrar
+                    $stmtCols = $pdo->query("DESCRIBE $table");
+                    $validColumns = $stmtCols->fetchAll(PDO::FETCH_COLUMN);
+
+                    $where = [];
+                    $values = [];
+                    foreach ($filters as $key => $val) {
+                        $columnToUse = $key;
+                        // Mapeo inteligente para el portal de padres
+                        if ($key === 'parentEmail' && !in_array('parentEmail', $validColumns) && in_array('email', $validColumns)) {
+                            $columnToUse = 'email';
+                        }
+                        
+                        if (in_array($columnToUse, $validColumns)) {
+                            $where[] = "`$columnToUse` = ?";
+                            $values[] = $val;
+                        }
+                    }
+                    
+                    if (empty($where)) {
+                        $stmt = $pdo->query("SELECT * FROM $table ORDER BY id DESC");
+                    } else {
+                        $sql = "SELECT * FROM $table WHERE " . implode(' AND ', $where) . " ORDER BY id DESC";
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute($values);
+                    }
+                    echo json_encode($stmt->fetchAll());
+                }
+            }
+        } 
+        elseif ($method === 'POST') {
+            if (!$input) response('error', 'No se recibieron datos (JSON inválido)');
+            
+            // FILTRADO DINÁMICO: Obtener columnas reales de la tabla
+            $stmtCols = $pdo->query("DESCRIBE $table");
+            $validColumns = $stmtCols->fetchAll(PDO::FETCH_COLUMN);
+            
+            // Limpiar campos que no deben ir en el INSERT
+            unset($input['id']);
+            
+            $filteredData = [];
+            foreach ($input as $key => $value) {
+                $columnToUse = $key;
+                // Mapeo inteligente para el portal de padres al guardar
+                if ($key === 'parentEmail' && !in_array('parentEmail', $validColumns) && in_array('email', $validColumns)) {
+                    $columnToUse = 'email';
+                }
+
+                if (in_array($columnToUse, $validColumns)) {
+                    $filteredData[$columnToUse] = $value;
+                }
+            }
+            
+            if (empty($filteredData)) response('error', 'No hay datos válidos para insertar');
+
+            $keys = array_keys($filteredData);
+            $fields = implode(',', array_map(function($k) { return "`$k`"; }, $keys));
+            $placeholders = implode(',', array_fill(0, count($keys), '?'));
+            
+            $stmt = $pdo->prepare("INSERT INTO $table ($fields) VALUES ($placeholders)");
+            $stmt->execute(array_values($filteredData));
+            success("Registro creado correctamente");
+        } 
+        elseif ($method === 'PUT') {
+            if (!$id) response('error', 'ID requerido para actualizar');
+            if (!$input) response('error', 'No se recibieron datos para actualizar');
+            
+            unset($input['id']); // No intentar actualizar la PK
+            
+            $fields = "";
+            foreach ($input as $key => $val) { $fields .= "`$key` = ?,"; }
+            $fields = rtrim($fields, ',');
+            
+            $stmt = $pdo->prepare("UPDATE $table SET $fields WHERE id = ?");
+            $params = array_values($input);
+            $params[] = $id;
+            
+            $stmt->execute($params);
+            success("Registro actualizado correctamente");
+        } 
+        elseif ($method === 'DELETE') {
+            if (!$id) response('error', 'ID requerido para eliminar');
+            $stmt = $pdo->prepare("DELETE FROM $table WHERE id = ?");
+            $stmt->execute([$id]);
+            success("Registro eliminado");
+        }
+    } catch (PDOException $e) {
+        http_response_code(400); // Bad Request
+        response('error', 'Error de Base de Datos: ' . $e->getMessage());
+    }
+}
+
+function handlePlayers($pdo, $method, $id, $input) {
+    try {
+        if ($method === 'PATCH') {
+            if (!$id) response('error', 'ID requerido');
+            
+            if (isset($input['status'])) {
+                $stmt = $pdo->prepare("UPDATE players SET status = ? WHERE id = ?");
+                $stmt->execute([$input['status'], $id]);
+                success("Estado de registro actualizado");
+            } 
+            elseif (isset($input['paymentStatus'])) {
+                // Asegurar que la columna existe (Migración automática silenciosa)
+                try {
+                    $pdo->exec("ALTER TABLE players ADD paymentStatus VARCHAR(50) DEFAULT 'Pendiente'");
+                } catch (\Throwable $t) { 
+                    // Silencioso, probablemente ya existe
+                }
+
+                $stmt = $pdo->prepare("UPDATE players SET paymentStatus = ? WHERE id = ?");
+                $stmt->execute([$input['paymentStatus'], $id]);
+                
+                if ($stmt->rowCount() > 0) {
+                    success("Estado de pago actualizado correctamente");
+                } else {
+                    response('error', "No se encontró el jugador con ID: $id o el estado es el mismo.");
+                }
+            }
+            elseif (isset($input['parentEmail'])) {
+                $stmt = $pdo->prepare("UPDATE players SET email = ? WHERE id = ?");
+                $stmt->execute([$input['parentEmail'], $id]);
+                success("Correo del acudiente actualizado correctamente");
+            }
+            else {
+                response('error', 'No se proporcionó ningún campo para actualizar');
+            }
+        } 
+        else {
+            handleCrud($pdo, 'players', $method, $id, $input);
+        }
+    } catch (PDOException $e) {
+        http_response_code(400);
+        response('error', 'Error en Jugadores: ' . $e->getMessage());
+    }
+}
+
+function handleSettings($pdo, $method, $input) {
     if ($method === 'GET') {
         $key = $_GET['key'] ?? '';
-        if ($key) {
-            $stmt = $conn->prepare("SELECT setting_value FROM site_settings WHERE setting_key = ?");
-            $stmt->execute([$key]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo $row ? $row['setting_value'] : '{}';
+        $stmt = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = ?");
+        $stmt->execute([$key]);
+        $row = $stmt->fetch();
+        if ($row) {
+            echo $row['setting_value'];
         } else {
-             echo json_encode(["status" => "error", "message" => "Key required"]);
+            echo json_encode(null);
         }
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $key = $data['key'];
-        $value = json_encode($data['value']);
-        $stmt = $conn->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    } 
+    elseif ($method === 'POST') {
+        if (!isset($input['key']) || !isset($input['value'])) {
+            response('error', 'Datos de configuración incompletos');
+        }
+        $key = $input['key'];
+        $value = is_array($input['value']) ? json_encode($input['value']) : $input['value'];
+        
+        $stmt = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
         $stmt->execute([$key, $value, $value]);
-        echo json_encode(["status" => "success"]);
+        success("Configuración guardada");
     }
 }
-
-function handleNews($method, $conn) {
-    if ($method === 'GET') {
-        $id = $_GET['id'] ?? null;
-        if ($id) {
-            $stmt = $conn->prepare("SELECT * FROM news WHERE id = ?");
-            $stmt->execute([$id]);
-            echo json_encode($stmt->fetch(PDO::FETCH_ASSOC));
-        } else {
-            $stmt = $conn->prepare("SELECT * FROM news ORDER BY id DESC");
-            $stmt->execute();
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        }
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO news (title, excerpt, date_str, image, content) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$data['title'], $data['excerpt'], $data['date'], $data['image'], $data['content']]);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'PUT') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE news SET title=?, excerpt=?, date_str=?, image=?, content=? WHERE id=?");
-        $stmt->execute([$data['title'], $data['excerpt'], $data['date'], $data['image'], $data['content'], $_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM news WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handlePlayers($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM players ORDER BY registrationDate DESC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO players (fullName, birthDate, age, category, parentName, phone, email, address, photo, dniImage, documentType, medicalCertificate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $data['fullName'], $data['birthDate'], $data['age'], $data['category'], 
-            $data['parentName'], $data['phone'], $data['email'], $data['address'], 
-            $data['photo'], $data['dniImage'], $data['documentType'], $data['medicalCertificate']
-        ]);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'PATCH') { // Para actualizar el status
-        $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE players SET status = ? WHERE id = ?");
-        $stmt->execute([$data['status'], $_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM players WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handlePayments($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM payments ORDER BY fecha DESC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO payments (jugadorId, tipo, mes, valor, fecha, metodo) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $data['jugadorId'], $data['tipo'], $data['mes'], $data['valor'], $data['fecha'], $data['metodo']
-        ]);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM payments WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handleExpenses($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM expenses ORDER BY fecha DESC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO expenses (concepto, valor, fecha) VALUES (?, ?, ?)");
-        $stmt->execute([$data['concepto'], $data['valor'], $data['fecha']]);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM expenses WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handleMatches($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM matches ORDER BY id DESC");
-        $stmt->execute();
-        $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $normalized = array_map(function($m) {
-            $m['date'] = $m['date_str'];
-            $m['time'] = $m['time_str'];
-            return $m;
-        }, $matches);
-        echo json_encode($normalized);
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO matches (category, homeTeam, awayTeam, date_str, time_str, stadium, homeScore, awayScore, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $data['category'], $data['homeTeam'], $data['awayTeam'], 
-            $data['date'], $data['time'], $data['stadium'],
-            $data['homeScore'] ?? null, $data['awayScore'] ?? null, $data['status'] ?? 'scheduled'
-        ]);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'PUT') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE matches SET category=?, homeTeam=?, awayTeam=?, date_str=?, time_str=?, stadium=?, homeScore=?, awayScore=?, status=? WHERE id=?");
-        $stmt->execute([
-            $data['category'], $data['homeTeam'], $data['awayTeam'], 
-            $data['date'], $data['time'], $data['stadium'],
-            $data['homeScore'] ?? null, $data['awayScore'] ?? null, $data['status'] ?? 'scheduled',
-            $_GET['id']
-        ]);
-        echo json_encode(["status" => "success"]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM matches WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handleCategories($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM categories ORDER BY id ASC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $fields = ['name', 'age', 'icon', 'schedule', 'time', 'coach', 'teamImage'];
-        $values = [
-            $data['name'], $data['age'], $data['icon'], 
-            $data['schedule'] ?? '', $data['time'] ?? '', 
-            $data['coach'] ?? '', $data['teamImage'] ?? ''
-        ];
-        $stmt = $conn->prepare("INSERT INTO categories (name, age, icon, schedule, time, coach, teamImage) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute($values);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'PUT') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE categories SET name=?, age=?, icon=?, schedule=?, time=?, coach=?, teamImage=? WHERE id=?");
-        $stmt->execute([
-            $data['name'], $data['age'], $data['icon'], 
-            $data['schedule'] ?? '', $data['time'] ?? '', 
-            $data['coach'] ?? '', $data['teamImage'] ?? '', 
-            $_GET['id']
-        ]);
-        echo json_encode(["status" => "success"]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM categories WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handleSponsors($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM sponsors ORDER BY id ASC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO sponsors (name, logo, url) VALUES (?, ?, ?)");
-        $stmt->execute([$data['name'], $data['logo'] ?? '', $data['url'] ?? '']);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'PUT') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE sponsors SET name=?, logo=?, url=? WHERE id=?");
-        $stmt->execute([$data['name'], $data['logo'] ?? '', $data['url'] ?? '', $_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM sponsors WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handleGallery($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM gallery ORDER BY id DESC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO gallery (url, caption, category) VALUES (?, ?, ?)");
-        $stmt->execute([$data['url'], $data['caption'] ?? '', $data['category'] ?? 'Todas']);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'DELETE') {
-        $stmt = $conn->prepare("DELETE FROM gallery WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    }
-    }
-}
-
-function handleContactMessages($method, $conn) {
-    if ($method === 'GET') {
-        // Get all messages, ordered by newest first
-        $stmt = $conn->prepare("SELECT * FROM contact_messages ORDER BY created_at DESC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'PATCH') {
-        // Update read status
-        $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE contact_messages SET read_status = ? WHERE id = ?");
-        $stmt->execute([$data['read_status'], $data['id']]);
-        echo json_encode(["status" => "success"]);
-    } elseif ($method === 'DELETE') {
-        // Delete message
-        $id = getJsonInput()['id'] ?? $_GET['id'] ?? null;
-        $stmt = $conn->prepare("DELETE FROM contact_messages WHERE id = ?");
-        $stmt->execute([$id]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-
-function handleBenefits($method, $conn) {
-    if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM benefits ORDER BY id ASC");
-        $stmt->execute();
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } elseif ($method === 'POST') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("INSERT INTO benefits (title, description, icon) VALUES (?, ?, ?)");
-        $stmt->execute([$data['title'], $data['description'], $data['icon']]);
-        echo json_encode(["status" => "success", "id" => $conn->lastInsertId()]);
-    } elseif ($method === 'PUT') {
-        $data = getJsonInput();
-        $stmt = $conn->prepare("UPDATE benefits SET title=?, description=?, icon=? WHERE id=?");
-        $stmt->execute([$data['title'], $data['description'], $data['icon'], $_GET['id']]);
-        echo json_encode(["status" => "success"]);
-    } elseif ($method === 'DELETE') {
-        $id = getJsonInput()['id'] ?? $_GET['id'] ?? null;
-        $stmt = $conn->prepare("DELETE FROM benefits WHERE id = ?");
-        $stmt->execute([$id]);
-        echo json_encode(["status" => "success"]);
-    }
-}
-?>
