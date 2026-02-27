@@ -22,11 +22,14 @@ export const apiService = {
                         params.append(key, data[key]);
                     }
                 }
+                params.append('_t', Date.now());
                 const queryString = params.toString();
                 if (queryString) url += `&${queryString}`;
             } else if (data.id) {
                 url += `&id=${data.id}`;
             }
+        } else if (method === 'GET') {
+            url += `&_t=${Date.now()}`;
         }
 
         const options = {

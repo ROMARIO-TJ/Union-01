@@ -131,6 +131,11 @@ const routes = [
         name: "AdminModules",
         component: () => import("../views/admin/ModulesManager.vue"),
       },
+      {
+        path: "users",
+        name: "AdminUsers",
+        component: () => import("../views/admin/UsersManager.vue"),
+      },
       // FINANCIERO ROUTES
       {
         path: "financiero/pagos",

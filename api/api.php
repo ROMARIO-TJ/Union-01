@@ -75,6 +75,12 @@ switch ($action) {
     case 'contact':
         handleContact($pdo, $input);
         break;
+    case 'users':
+        handleCrud($pdo, 'users', $method, $id, $input);
+        break;
+    case 'auth':
+        handleAuth($pdo, $method, $input);
+        break;
     default:
         response('error', 'Acción no válida: ' . $action);
 }
@@ -216,14 +222,30 @@ function handleCrud($pdo, $table, $method, $id, $input) {
             if (!$id) response('error', 'ID requerido para actualizar');
             if (!$input) response('error', 'No se recibieron datos para actualizar');
             
-            unset($input['id']); // No intentar actualizar la PK
+            // Obtener columnas reales para filtrar
+            $stmtCols = $pdo->query("DESCRIBE $table");
+            $validColumns = $stmtCols->fetchAll(PDO::FETCH_COLUMN);
+            
+            unset($input['id']);
+            
+            $filteredData = [];
+            foreach ($input as $key => $value) {
+                if (in_array($key, $validColumns)) {
+                    $filteredData[$key] = $value;
+                }
+            }
+            
+            if (empty($filteredData)) response('error', 'No hay datos válidos para actualizar');
             
             $fields = "";
-            foreach ($input as $key => $val) { $fields .= "`$key` = ?,"; }
+            $params = [];
+            foreach ($filteredData as $key => $val) { 
+                $fields .= "`$key` = ?,"; 
+                $params[] = $val;
+            }
             $fields = rtrim($fields, ',');
             
             $stmt = $pdo->prepare("UPDATE $table SET $fields WHERE id = ?");
-            $params = array_values($input);
             $params[] = $id;
             
             $stmt->execute($params);
@@ -231,6 +253,22 @@ function handleCrud($pdo, $table, $method, $id, $input) {
         } 
         elseif ($method === 'DELETE') {
             if (!$id) response('error', 'ID requerido para eliminar');
+            
+            // ELIMINACIÓN EN CASCADA (Padre -> Jugador)
+            // Si el motor de BD no tiene el trigger, lo forzamos por código
+            if ($table === 'users') {
+                $stmtEmail = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+                $stmtEmail->execute([$id]);
+                $userRecord = $stmtEmail->fetch(PDO::FETCH_ASSOC);
+                
+                if ($userRecord && !empty($userRecord['email'])) {
+                    // Borramos los jugadores asociados a este correo 
+                    // (Los pagos se borrarán solos gracias a la regla de la BDD de pagos)
+                    $stmtPlayers = $pdo->prepare("DELETE FROM players WHERE email = ?");
+                    $stmtPlayers->execute([$userRecord['email']]);
+                }
+            }
+
             $stmt = $pdo->prepare("DELETE FROM $table WHERE id = ?");
             $stmt->execute([$id]);
             success("Registro eliminado");
@@ -308,5 +346,59 @@ function handleSettings($pdo, $method, $input) {
         $stmt = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
         $stmt->execute([$key, $value, $value]);
         success("Configuración guardada");
+    }
+}
+
+function handleAuth($pdo, $method, $input) {
+    if ($method !== 'POST') response('error', 'Método no permitido');
+    
+    $email = $input['email'] ?? '';
+    $password = $input['password'] ?? '';
+    $google_id = $input['google_id'] ?? null;
+
+    if ($google_id) {
+        // Login con Google
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE google_id = ? OR email = ?");
+        $stmt->execute([$google_id, $email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            // Usuario existe, actualizar google_id si es necesario
+            if (!$user['google_id']) {
+                $upd = $pdo->prepare("UPDATE users SET google_id = ? WHERE id = ?");
+                $upd->execute([$google_id, $user['id']]);
+            }
+            unset($user['password']);
+            echo json_encode(['status' => 'success', 'user' => $user]);
+        } else {
+            // Usuario nuevo de Google (Registro automático)
+            $stmt = $pdo->prepare("INSERT INTO users (name, email, google_id, role, photo) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $input['name'] ?? 'Usuario de Google',
+                $email,
+                $google_id,
+                'padre_familia',
+                $input['photo'] ?? null
+            ]);
+            $newId = $pdo->lastInsertId();
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+            $stmt->execute([$newId]);
+            $newUser = $stmt->fetch(PDO::FETCH_ASSOC);
+            unset($newUser['password']);
+            echo json_encode(['status' => 'success', 'user' => $newUser, 'message' => 'Registro con Google exitoso']);
+        }
+        exit;
+    }
+
+    // Login por credenciales (Busca por email O por username)
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE (email = ? OR username = ?) AND password = ?");
+    $stmt->execute([$email, $email, $password]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user) {
+        unset($user['password']);
+        echo json_encode(['status' => 'success', 'user' => $user]);
+    } else {
+        response('error', 'Credenciales incorrectas');
     }
 }

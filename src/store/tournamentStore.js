@@ -28,11 +28,29 @@ export const useTournamentStore = defineStore('tournament', () => {
         if (saved) {
             standings.value = JSON.parse(saved);
         } else {
-            standings.value = categories.map(cat => ({
-                id: cat.toLowerCase().replace(/\s+/g, '-'),
-                category: cat,
-                teams: []
-            }));
+            standings.value = categories.map(cat => {
+                const id = cat.toLowerCase().replace(/\s+/g, '-');
+                let teams = [];
+
+                // Cargar datos iniciales para Sub 15
+                if (cat === 'Sub 15') {
+                    teams = [
+                        { name: 'CLUB ATLETICO LA GLORIA', played: 1, won: 1, drawn: 0, lost: 0, gf: 5, ga: 1, points: 3 },
+                        { name: 'ATLETAS DEL MAÑANA', played: 1, won: 1, drawn: 0, lost: 0, gf: 3, ga: 0, points: 3 },
+                        { name: 'UNION JAGUERA', played: 1, won: 1, drawn: 0, lost: 0, gf: 3, ga: 0, points: 3 },
+                        { name: 'LOS EMBAJADORES DE EL BANCO', played: 1, won: 1, drawn: 0, lost: 0, gf: 5, ga: 1, points: 3 },
+                        { name: 'INTER JUNIOR', played: 1, won: 1, drawn: 0, lost: 0, gf: 2, ga: 0, points: 3 },
+                        { name: 'MANCHESTER VALLEDUPAR', played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0 },
+                        { name: 'ACADEMIA VALLENATA', played: 1, won: 0, drawn: 0, lost: 1, gf: 1, ga: 5, points: 0 },
+                        { name: 'ALIANZA FC "B"', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 2, points: 0 },
+                        { name: 'FUTURAS ESTRELLAS', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 3, points: 0 },
+                        { name: 'ATLETICO CESAR FC', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 3, points: 0 },
+                        { name: '"B"ACAD VALLEDUPAR FC', played: 1, won: 0, drawn: 0, lost: 1, gf: 1, ga: 5, points: 0 }
+                    ].sort((a, b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
+                }
+
+                return { id, category: cat, teams };
+            });
         }
 
         try {

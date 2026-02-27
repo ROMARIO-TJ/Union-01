@@ -188,6 +188,7 @@ export const useMatchesStore = defineStore('matches', () => {
         matches,
         isLoading,
         error,
+        initMatches,
         addMatch,
         updateMatch,
         deleteMatch,

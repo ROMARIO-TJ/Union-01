@@ -342,6 +342,7 @@ const handleClickOutside = (event) => {
 };
 
 onMounted(() => {
+    playersStore.initPlayers();
     document.addEventListener('click', handleClickOutside);
 });
 

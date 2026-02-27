@@ -43,6 +43,8 @@ const closeMenu = () => {
           </li>
           <li v-if="globalSettings.modules.news.enabled"><router-link to="/noticias"
               @click="closeMenu">Noticias</router-link></li>
+          <li v-if="globalSettings.modules.matches.enabled"><router-link to="/partidos"
+              @click="closeMenu">Partidos</router-link></li>
           <li><router-link to="/contacto" @click="closeMenu">Contacto</router-link></li>
           
           <!-- Portal Mobile CTA (Visible only in mobile menu) -->

@@ -148,6 +148,9 @@ export const usePlayersStore = defineStore('players', () => {
         }
     };
 
+    // Inicializar al cargar
+    initPlayers();
+
     return {
         players,
         isLoading,

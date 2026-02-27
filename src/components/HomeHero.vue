@@ -10,7 +10,12 @@ const intervalId = ref(null);
 
 const nextMatch = computed(() => {
     const upcoming = matchesStore.getUpcomingMatches();
-    return upcoming.length > 0 ? upcoming[0] : null;
+    // Filtrar solo partidos del Unión Jaguera
+    const unionMatches = upcoming.filter(m =>
+        m.homeTeam?.toUpperCase().includes('UNION JAGUERA') ||
+        m.awayTeam?.toUpperCase().includes('UNION JAGUERA')
+    );
+    return unionMatches.length > 0 ? unionMatches[0] : null;
 });
 
 // Slides with dynamic + match slide if enabled
@@ -92,7 +97,7 @@ onUnmounted(() => {
 
                                 <p class="hero__subtitle">{{ slide.subtitle }}</p>
 
-                                <div class="hero__actions">
+                                <div v-if="slide.showButtons" class="hero__actions">
                                     <router-link :to="slide.primaryBtnLink || '/inscripciones'"
                                         class="btn btn-primary btn-hero-lg group">
                                         {{ slide.primaryBtnText || 'Inscripciones' }}
@@ -112,7 +117,7 @@ onUnmounted(() => {
                 <!-- MATCH SLIDE -->
                 <div v-else class="hero-slide slide-match">
                     <div class="slide-bg-image"
-                        style="background-image: url('https://realvalladolidacademy.com/wp-content/uploads/2024/06/tecnificacion-futbol-3.webp')">
+                        :style="{ backgroundImage: `url(${homeSettings.matchSlideImage || 'https://realvalladolidacademy.com/wp-content/uploads/2024/06/tecnificacion-futbol-3.webp'})` }">
                     </div>
                     <div class="slide-overlay"></div>
 
@@ -372,6 +377,7 @@ onUnmounted(() => {
     font-weight: 900;
     font-style: italic;
     margin-bottom: 2rem;
+    color: #ffffff;
 }
 
 .vs-circle {
@@ -391,7 +397,7 @@ onUnmounted(() => {
     display: flex;
     justify-content: center;
     gap: 3rem;
-    color: #94a3b8;
+    color: #ffffff;
     font-weight: 600;
 }
 

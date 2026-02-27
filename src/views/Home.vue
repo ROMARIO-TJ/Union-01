@@ -38,8 +38,20 @@ const orderedCategories = computed(() => {
   );
 });
 
-const latestNews = newsStore.getLatestNews(3);
-const upcomingMatches = matchesStore.getUpcomingMatches();
+const latestNews = computed(() => newsStore.getLatestNews(3));
+
+// Solo mostrar los próximos encuentros de la fecha MÁS CERCANA (La próxima jornada)
+const upcomingMatches = computed(() => {
+  const allUpcoming = matchesStore.getUpcomingMatches();
+  if (allUpcoming.length === 0) return [];
+
+  // Como `getUpcomingMatches()` ya viene ordenado cronológicamente, 
+  // la primera fecha del array es la fecha más próxima a jugarse.
+  const nextDate = allUpcoming[0].date;
+
+  // Solo devolvemos los partidos que correspondan a esa próxima fecha
+  return allUpcoming.filter(m => m.date === nextDate);
+});
 
 const carousel = ref(null);
 const valuesSection = ref(null);
@@ -60,6 +72,11 @@ const scrollRight = () => {
 };
 
 onMounted(() => {
+  // Sincronizar datos vitales
+  playersStore.initPlayers();
+  matchesStore.initMatches();
+  categoryStore.initCategories();
+
   observer = new IntersectionObserver(([entry]) => {
     if (entry.isIntersecting) {
       isValuesVisible.value = true;
@@ -74,9 +91,22 @@ onMounted(() => {
   }
 });
 
-onUnmounted(() => {
-  if (observer) observer.disconnect();
-});
+const getTeamLogo = (teamName) => {
+  const name = teamName?.toUpperCase() || '';
+  if (name.includes('UNION JAGUERA')) return '/img/Sub-15/UNION_JAGUERA.png';
+  if (name.includes('ALIANZA FC')) return '/img/Sub-15/ALIANZA_FC.png';
+  if (name.includes('INTER JUNIOR')) return '/img/Sub-15/ITER_JUNIOR_CODAZZI.png';
+  if (name.includes('EMBAJADORES')) return '/img/Sub-15/EMBAJADORES_BANCO_MAGDALENA.png';
+  if (name.includes('ATLETICO CESAR')) return '/img/Sub-15/ATLETICO_CESAR.png';
+  if (name.includes('ATLETAS DEL')) return '/img/Sub-15/ATLETAS_BOSCONIA.png';
+  if (name.includes('LA GLORIA')) return '/img/Sub-15/CLUB_ATLETICO_LA_GLORIA.png';
+  if (name.includes('FUTURAS ESTRELLAS')) return '/img/Sub-15/FUTURAS_ESTRELLAS_VALLEDUPAR.png';
+  if (name.includes('MANCHESTER')) return '/img/Sub-15/MANCHESTER_VALLEDUPAR.png';
+  if (name.includes('ACADEMIA VALLENATA')) return '/img/Sub-15/ACADEMIA_VALLENATA.png';
+  if (name.includes('DESCANSA')) return '/img/Sub-15/DESCANSO.png';
+  if (name.includes('VACAD VALLEDUPAR') || name.includes('ACAD VALLEDUPAR')) return '/img/Sub-15/ACADEMIA_VALLEDUPAR.png';
+  return '';
+};
 </script>
 
 <template>
@@ -112,7 +142,9 @@ onUnmounted(() => {
               <div class="teams-grid">
                 <div class="team-v">
                   <div class="team-logo-box">
-                    <img src="../assets/img/logosinfondo.png" alt="Unión Jaguera" />
+                    <img v-if="match.homeLogo || getTeamLogo(match.homeTeam)"
+                      :src="match.homeLogo || getTeamLogo(match.homeTeam)" :alt="match.homeTeam" />
+                    <span v-else class="material-symbols-outlined text-slate-400">shield</span>
                   </div>
                   <span class="team-n">{{ match.homeTeam }}</span>
                 </div>
@@ -122,8 +154,10 @@ onUnmounted(() => {
                 </div>
 
                 <div class="team-v">
-                  <div class="team-logo-box bg-slate-100 dark:bg-slate-800">
-                    <span class="material-symbols-outlined text-slate-400">shield</span>
+                  <div class="team-logo-box">
+                    <img v-if="match.awayLogo || getTeamLogo(match.awayTeam)"
+                      :src="match.awayLogo || getTeamLogo(match.awayTeam)" :alt="match.awayTeam" />
+                    <span v-else class="material-symbols-outlined text-slate-400">shield</span>
                   </div>
                   <span class="team-n">{{ match.awayTeam }}</span>
                 </div>

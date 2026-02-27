@@ -1,0 +1,32 @@
+PASOS PARA SUBIR A HOSTINGER (UNIÓN JAGUERA)
+===========================================
+
+He preparado un archivo llamado 'HOSTINGER_READY_TO_UPLOAD.zip' que contiene todo lo necesario.
+
+1. SUBIR ARCHIVOS:
+   - Sube el contenido del ZIP directamente a la carpeta 'public_html' de tu Hostinger.
+   - Asegúrate de que los archivos 'index.html', '.htaccess' y la carpeta 'api' queden en la raíz de 'public_html'.
+
+2. BASE DE DATOS:
+   - Entra a tu Panel de Hostinger > Bases de Datos MySQL.
+   - Si no lo has hecho, crea la base de datos con estos nombres (según tu db_connect.php):
+     Nombre BD: u671193113_unio_db
+     Usuario: u671193113_union_10
+   - actualiza la base de datos (IMPORTANTE):
+   - Entra a phpMyAdmin en Hostinger.
+   - Ejecuta primero `database_setup.sql` (si es una instalación nueva).
+   - Luego ejecuta `update_news_module.sql` para las nuevas funciones de noticias.
+   - Finalmente ejecuta `setup_users_table.sql` para activar el nuevo sistema de usuarios y login con Google.
+   - También importa los siguientes archivos .sql:
+     - `contact_messages_table.sql`
+     - `benefits_table.sql`
+
+3. PERMISOS DE CARPETAS:
+   - Asegúrate de que la carpeta 'api/uploads' tenga permisos de ESCRITURA (755 o 775) para que las fotos se guarden correctamente.
+
+4. VERIFICACIÓN:
+   - Una vez subido, entra a tu dominio.
+   - Prueba subir una foto en el panel de administración para confirmar que 'api/uploads' funciona.
+   - Prueba el formulario de contacto para confirmar el envío de correos.
+
+¡Todo listo para producción!

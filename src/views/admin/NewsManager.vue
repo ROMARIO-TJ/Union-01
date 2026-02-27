@@ -15,21 +15,36 @@ const fileInput = ref(null);
 const formData = ref({
   title: '',
   excerpt: '',
-  date: '',
+  date_str: '',
   image: '',
-  content: ''
+  content: '',
+  gallery: [],
+  show_social: 1
 });
 
 const openCreateModal = () => {
   isEditing.value = false;
-  formData.value = { title: '', excerpt: '', date: '', image: '', content: '' };
+  formData.value = {
+    title: '',
+    excerpt: '',
+    date_str: '',
+    image: '',
+    content: '',
+    gallery: [],
+    show_social: 1
+  };
   isModalOpen.value = true;
 };
 
 const openEditModal = (item) => {
   isEditing.value = true;
   currentId.value = item.id;
-  formData.value = { ...item };
+  formData.value = {
+    ...item,
+    date_str: item.date_str || item.date || '',
+    gallery: typeof item.gallery === 'string' ? JSON.parse(item.gallery) : (item.gallery || []),
+    show_social: item.show_social !== undefined ? parseInt(item.show_social) : 1
+  };
   isModalOpen.value = true;
 };
 
@@ -37,16 +52,45 @@ const closeModal = () => {
   isModalOpen.value = false;
 };
 
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
+const handleFileUpload = async (event, target = 'main') => {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
 
   try {
-    const url = await uploadFile(file);
-    formData.value.image = url;
+    if (target === 'main') {
+      const url = await uploadFile(files[0]);
+      formData.value.image = url;
+    } else {
+      // Carga múltiple para la galería
+      for (let i = 0; i < files.length; i++) {
+        const url = await uploadFile(files[i]);
+        formData.value.gallery.push(url);
+      }
+    }
+    // Limpiar el input para permitir subir los mismos archivos si se desea
+    event.target.value = '';
   } catch (error) {
     alert('Error al subir la imagen');
   }
+};
+
+const setCurrentDate = () => {
+  const now = new Date();
+  const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+  const day = now.getDate();
+  const month = months[now.getMonth()];
+  formData.value.date_str = `${day} ${month}`;
+};
+
+const addGalleryUrl = () => {
+  const url = prompt('Ingresa la URL de la imagen:');
+  if (url) {
+    formData.value.gallery.push(url);
+  }
+};
+
+const removeGalleryImg = (index) => {
+  formData.value.gallery.splice(index, 1);
 };
 
 const triggerFileInput = () => {
@@ -54,10 +98,15 @@ const triggerFileInput = () => {
 };
 
 const handleSubmit = async () => {
+  const dataToSubmit = {
+    ...formData.value,
+    gallery: JSON.stringify(formData.value.gallery)
+  };
+
   if (isEditing.value) {
-    await newsStore.updateNews(currentId.value, formData.value);
+    await newsStore.updateNews(currentId.value, dataToSubmit);
   } else {
-    await newsStore.addNews(formData.value);
+    await newsStore.addNews(dataToSubmit);
   }
   closeModal();
 };
@@ -99,7 +148,7 @@ const deleteItem = async (id) => {
                   style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
               </td>
               <td>{{ item.title }}</td>
-              <td>{{ item.date }}</td>
+              <td>{{ item.date_str || item.date }}</td>
               <td>
                 <div class="action-btns">
                   <button @click="openEditModal(item)" class="btn-action edit" title="Editar">
@@ -124,7 +173,7 @@ const deleteItem = async (id) => {
             style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">
           <div>
             <strong>{{ item.title }}</strong>
-            <div style="font-size: 0.8rem; color: var(--admin-text-light);">{{ item.date }}</div>
+            <div style="font-size: 0.8rem; color: var(--admin-text-light);">{{ item.date_str || item.date }}</div>
           </div>
         </div>
         <div class="admin-card-item__body">
@@ -164,33 +213,85 @@ const deleteItem = async (id) => {
             </div>
             <div class="form-group">
               <label>Fecha (Ej: 15 ENE)</label>
-              <input v-model="formData.date" type="text" class="form-control" required>
+              <div class="date-input-group">
+                <input v-model="formData.date_str" type="text" class="form-control" placeholder="15 ENE" required>
+                <button type="button" @click="setCurrentDate" class="btn-today">
+                  <i class="fa-solid fa-calendar-day"></i> Hoy
+                </button>
+              </div>
             </div>
+            <!-- Imagen Principal -->
             <div class="form-group">
-              <label>Imagen de la Noticia</label>
-              <div style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 0.5rem;">
-                <div v-if="formData.image"
-                  style="width: 100px; height: 100px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #eee;">
-                  <img :src="formData.image" style="width: 100px; height: 100px; object-fit: cover;">
-                </div>
-                <div v-else
-                  style="width: 100px; height: 100px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 0.8rem; text-align: center; padding: 0.5rem;">
-                  Sin imagen
-                </div>
-                <div style="flex: 1;">
-                  <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/*" style="display: none;">
-                  <button type="button" @click="triggerFileInput" class="btn-admin"
-                    style="width: 100%; margin-bottom: 0.5rem; background: #eee;">
-                    <i class="fa-solid fa-upload"></i> {{ isUploading ? 'Subiendo...' : 'Subir Imagen Local' }}
+              <label class="form-label-premium">Imagen de Portada</label>
+              <div class="main-image-uploader">
+                <div v-if="formData.image" class="image-preview-main">
+                  <img :src="formData.image">
+                  <button type="button" @click="formData.image = ''" class="remove-badge">
+                    <i class="fa-solid fa-xmark"></i>
                   </button>
-                  <input v-model="formData.image" type="text" class="form-control"
-                    placeholder="O pega la URL de la imagen aquí">
+                </div>
+                <div v-else class="empty-preview-main" @click="triggerFileInput">
+                  <i class="fa-solid fa-image"></i>
+                  <span>Sin imagen de portada</span>
+                </div>
+
+                <div class="uploader-controls">
+                  <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/*" style="display: none;">
+                  <button type="button" @click="triggerFileInput" class="btn-upload">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    {{ isUploading ? 'Subiendo...' : 'Subir Imagen' }}
+                  </button>
+                  <div class="url-input-wrapper">
+                    <i class="fa-solid fa-link"></i>
+                    <input v-model="formData.image" type="text" placeholder="O pega el enlace aquí...">
+                  </div>
                 </div>
               </div>
             </div>
+
             <div class="form-group">
-              <label>Contenido Completo</label>
-              <textarea v-model="formData.content" class="form-control" rows="5" required></textarea>
+              <label class="form-label-premium">Contenido de la Noticia</label>
+              <textarea v-model="formData.content" class="form-control-premium" rows="6"
+                placeholder="Escribe aquí toda la noticia..." required></textarea>
+            </div>
+
+            <!-- GALERIA ADICIONAL -->
+            <div class="form-group">
+              <label class="form-label-premium">Galería de Fotos Adicionales</label>
+              <div class="gallery-container-premium">
+                <div class="gallery-grid-admin">
+                  <div v-for="(img, idx) in formData.gallery" :key="idx" class="gallery-item-admin">
+                    <img :src="img">
+                    <button type="button" @click="removeGalleryImg(idx)" class="remove-img-mini">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+
+                  <div class="add-img-options">
+                    <input type="file" @change="e => handleFileUpload(e, 'gallery')" accept="image/*"
+                      style="display: none;" :id="'gal-up-' + currentId" multiple>
+                    <label :for="'gal-up-' + currentId" class="add-btn-premium" title="Subir Fotos">
+                      <i class="fa-solid fa-images"></i>
+                      <span>Subir Fotos</span>
+                    </label>
+                    <button type="button" @click="addGalleryUrl" class="add-btn-premium secondary" title="Pegar Enlace">
+                      <i class="fa-solid fa-link"></i>
+                      <span>Link</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CONTROLES SOCIALES -->
+            <div class="form-group social-toggle-group">
+              <div class="toggle-wrapper">
+                <label class="switch">
+                  <input type="checkbox" v-model="formData.show_social" :true-value="1" :false-value="0">
+                  <span class="slider round"></span>
+                </label>
+                <span class="toggle-text">Permitir compartir en redes sociales</span>
+              </div>
             </div>
 
             <div class="admin-modal-footer">

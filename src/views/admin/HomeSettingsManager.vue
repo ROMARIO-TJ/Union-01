@@ -21,7 +21,8 @@ const slideForm = ref({
   primaryBtnLink: '/club',
   secondaryBtnText: 'Inscripciones',
   secondaryBtnLink: '/categoria',
-  isIdentity: false
+  isIdentity: false,
+  showButtons: true
 });
 
 // Philosophy Modal State
@@ -50,7 +51,8 @@ const openAddSlide = () => {
     primaryBtnLink: '/club',
     secondaryBtnText: 'Inscripciones',
     secondaryBtnLink: '/categoria',
-    isIdentity: false
+    isIdentity: false,
+    showButtons: true
   };
   isSlideModalOpen.value = true;
 };
@@ -118,6 +120,9 @@ const handleFileUpload = async (event, target) => {
   try {
     const url = await uploadFile(file);
     if (target === 'slide') slideForm.value.image = url;
+    else if (target === 'match-slide') {
+      homeSettings.updateMatchSlideImage(url);
+    }
     else if (target.startsWith('hero_')) {
       const pageKey = target.replace('hero_', '');
       homeSettings.pageHeroes[pageKey].image = url;
@@ -168,6 +173,32 @@ const handleFileUpload = async (event, target) => {
           </div>
         </div>
       </div>
+
+      <!-- Match Slide Manager -->
+      <div class="manager-card">
+        <div class="card-header"><i class="fa-solid fa-trophy"></i>
+          <h3>Slide de Próximo Partido</h3>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Imagen de Fondo del Slide de Partido</label>
+            <div style="display: flex; gap: 0.5rem; max-width: 600px;">
+              <input v-model="homeSettings.matchSlideImage" type="text" class="form-control"
+                placeholder="URL de la imagen">
+              <label class="btn-admin btn-icon-only">
+                <i class="fa-solid fa-upload"></i>
+                <input type="file" @change="e => handleFileUpload(e, 'match-slide')" style="display:none">
+              </label>
+              <button @click="homeSettings.updateMatchSlideImage(homeSettings.matchSlideImage)"
+                class="btn-admin btn-admin--primary">Guardar</button>
+            </div>
+          </div>
+          <div class="match-slide-preview-admin mt-4"
+            :style="{ backgroundImage: `url(${homeSettings.matchSlideImage})` }">
+            <div class="match-preview-overlay">Vista previa del fondo</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- TAB: CAROUSEL -->
@@ -191,7 +222,8 @@ const handleFileUpload = async (event, target) => {
                 <span>{{ slide.subtitle }}</span>
                 <div class="slide-badges">
                   <span v-if="slide.isIdentity" class="badge-identity">Identidad</span>
-                  <span class="badge-link">{{ slide.primaryBtnText }}</span>
+                  <span v-if="!slide.showButtons" class="badge-outline">Sin Botones</span>
+                  <span v-else class="badge-link">{{ slide.primaryBtnText }}</span>
                 </div>
               </div>
               <div class="action-btns">
@@ -274,11 +306,19 @@ const handleFileUpload = async (event, target) => {
             <input v-model="slideForm.primaryBtnLink" type="text" class="form-control">
           </div>
         </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="slideForm.isIdentity">
-            Estilo Identidad (Logo central + sin overlay oscuro)
-          </label>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="slideForm.isIdentity">
+              Estilo Identidad (Logo central)
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="slideForm.showButtons">
+              Mostrar Botones de Acción
+            </label>
+          </div>
         </div>
       </div>
       <div class="admin-modal-footer">
@@ -453,8 +493,13 @@ const handleFileUpload = async (event, target) => {
 }
 
 .badge-link {
-  background: #dcfce7;
-  color: #166534;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.badge-outline {
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text-light);
   padding: 0.1rem 0.5rem;
   border-radius: 4px;
   font-size: 0.7rem;
@@ -497,6 +542,26 @@ const handleFileUpload = async (event, target) => {
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
+}
+
+.match-slide-preview-admin {
+  height: 150px;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--admin-border);
+}
+
+.match-preview-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 /* Switch & Modals same as before */

@@ -42,11 +42,6 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         }
     });
 
-    // --- NEW DYNAMIC CONTENT ---
-    const heroSlides = ref([]);
-    const philosophy = ref([]);
-    const pageHeroes = ref({});
-
     const initialSlides = [
         {
             id: 1,
@@ -57,7 +52,8 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
             primaryBtnLink: '/club',
             secondaryBtnText: 'Inscripciones',
             secondaryBtnLink: '/categoria',
-            isIdentity: true
+            isIdentity: true,
+            showButtons: true
         },
         {
             id: 2,
@@ -68,7 +64,8 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
             primaryBtnLink: '/inscripcion?categoria=Escuela de Formación',
             secondaryBtnText: 'Ver Categorías',
             secondaryBtnLink: '/categoria',
-            isIdentity: false
+            isIdentity: false,
+            showButtons: true
         }
     ];
 
@@ -126,8 +123,32 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         }
     };
 
+    // --- REFS ---
+    const heroSlides = ref([...initialSlides]);
+    const philosophy = ref([...initialPhilosophy]);
+    const pageHeroes = ref({ ...initialPageHeroes });
+    const matchSlideImage = ref('https://realvalladolidacademy.com/wp-content/uploads/2024/06/tecnificacion-futbol-3.webp');
     const isLoading = ref(false);
     const error = ref(null);
+
+    // --- UTILS ---
+    const sanitizeIcon = (icon) => {
+        if (!icon) return 'star';
+        // Clean FontAwesome or Material Symbols names to a standard format
+        return icon.replace(/fa-solid /g, '')
+            .replace(/fa- /g, '')
+            .replace(/fa-/g, '')
+            .replace(/groups/g, 'groups')
+            .replace(/users/g, 'groups')
+            .replace(/futbol/g, 'sports_soccer')
+            .replace(/fire/g, 'whatshot')
+            .replace(/check/g, 'verified')
+            .replace(/star/g, 'grade')
+            .replace(/trophy/g, 'emoji_events')
+            .replace(/newspaper/g, 'newspaper')
+            .replace(/handshake/g, 'handshake')
+            .replace(/images/g, 'images');
+    };
 
     // --- METHODS ---
     const initSettings = async () => {
@@ -136,60 +157,30 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
 
         const savedSettings = localStorage.getItem('union_home_settings_v3');
         if (savedSettings) {
-            const sanitizeIcon = (icon) => {
-                if (!icon) return 'star';
-                return icon.replace(/fa-solid /g, '')
-                    .replace(/fa- /g, '')
-                    .replace(/fa-/g, '')
-                    .replace(/users/g, 'groups')
-                    .replace(/futbol/g, 'sports_soccer')
-                    .replace(/fire/g, 'whatshot')
-                    .replace(/check/g, 'verified')
-                    .replace(/star/g, 'grade')
-                    .replace(/trophy/g, 'emoji_events')
-                    .replace(/newspaper/g, 'newspaper')
-                    .replace(/handshake/g, 'handshake')
-                    .replace(/images/g, 'images');
-            };
-
-            const parsed = JSON.parse(savedSettings);
-            if (parsed.sections) {
-                Object.keys(sections.value).forEach(key => {
-                    if (parsed.sections[key] !== undefined) {
-                        sections.value[key].enabled = parsed.sections[key].enabled;
-                        if (parsed.sections[key].icon) {
-                            sections.value[key].icon = sanitizeIcon(parsed.sections[key].icon);
+            try {
+                const parsed = JSON.parse(savedSettings);
+                if (parsed.sections) {
+                    Object.keys(sections.value).forEach(key => {
+                        if (parsed.sections[key] !== undefined) {
+                            sections.value[key].enabled = parsed.sections[key].enabled;
+                            if (parsed.sections[key].icon) {
+                                sections.value[key].icon = sanitizeIcon(parsed.sections[key].icon);
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                if (parsed.heroSlides) heroSlides.value = parsed.heroSlides.map(s => ({ ...s, showButtons: s.showButtons !== undefined ? s.showButtons : true }));
+                if (parsed.philosophy) philosophy.value = parsed.philosophy.map(p => ({ ...p, icon: sanitizeIcon(p.icon) }));
+                if (parsed.pageHeroes) pageHeroes.value = { ...initialPageHeroes, ...parsed.pageHeroes };
+                if (parsed.matchSlideImage) matchSlideImage.value = parsed.matchSlideImage;
+            } catch (e) {
+                console.error('Error parsing local settings:', e);
             }
-            heroSlides.value = parsed.heroSlides || initialSlides;
-            philosophy.value = (parsed.philosophy || initialPhilosophy).map(p => ({
-                ...p,
-                icon: sanitizeIcon(p.icon)
-            }));
-            pageHeroes.value = parsed.pageHeroes || initialPageHeroes;
         }
 
         try {
             const data = await apiService.request('settings', 'GET', { key: 'home_settings' });
             if (data && typeof data === 'object') {
-                const sanitizeIcon = (icon) => {
-                    if (!icon) return 'star';
-                    return icon.replace(/fa-solid /g, '')
-                        .replace(/fa- /g, '')
-                        .replace(/fa-/g, '')
-                        .replace(/users/g, 'groups')
-                        .replace(/futbol/g, 'sports_soccer')
-                        .replace(/fire/g, 'whatshot')
-                        .replace(/check/g, 'verified')
-                        .replace(/star/g, 'grade')
-                        .replace(/trophy/g, 'emoji_events')
-                        .replace(/newspaper/g, 'newspaper')
-                        .replace(/handshake/g, 'handshake')
-                        .replace(/images/g, 'images');
-                };
-
                 if (data.sections) {
                     Object.keys(sections.value).forEach(key => {
                         if (data.sections[key] !== undefined) {
@@ -200,27 +191,40 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
                         }
                     });
                 }
-                heroSlides.value = data.heroSlides || initialSlides;
+                heroSlides.value = (data.heroSlides || initialSlides).map(s => ({ ...s, showButtons: s.showButtons !== undefined ? s.showButtons : true }));
                 philosophy.value = (data.philosophy || initialPhilosophy).map(p => ({
                     ...p,
                     icon: sanitizeIcon(p.icon)
                 }));
-                pageHeroes.value = data.pageHeroes || initialPageHeroes;
+                pageHeroes.value = { ...initialPageHeroes, ...(data.pageHeroes || {}) };
+                matchSlideImage.value = data.matchSlideImage || 'https://realvalladolidacademy.com/wp-content/uploads/2024/06/tecnificacion-futbol-3.webp';
                 saveToLocalStorage();
             }
         } catch (err) {
-            console.error('Error loading home settings:', err);
+            console.error('Error loading home settings from server:', err);
         } finally {
             isLoading.value = false;
         }
     };
 
     const pushSettingsToServer = async (newContent) => {
-        await apiService.request('settings', 'POST', {
-            key: 'home_settings',
-            value: newContent
-        });
-        await initSettings();
+        // Update local state first to ensure UI consistency
+        if (newContent.sections) sections.value = { ...newContent.sections };
+        if (newContent.heroSlides) heroSlides.value = [...newContent.heroSlides];
+        if (newContent.philosophy) philosophy.value = [...newContent.philosophy];
+        if (newContent.pageHeroes) pageHeroes.value = { ...newContent.pageHeroes };
+        if (newContent.matchSlideImage) matchSlideImage.value = newContent.matchSlideImage;
+
+        saveToLocalStorage();
+
+        try {
+            await apiService.request('settings', 'POST', {
+                key: 'home_settings',
+                value: newContent
+            });
+        } catch (err) {
+            console.error('Error saving settings to server:', err);
+        }
     };
 
     const saveToLocalStorage = () => {
@@ -228,143 +232,112 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
             sections: sections.value,
             heroSlides: heroSlides.value,
             philosophy: philosophy.value,
-            pageHeroes: pageHeroes.value
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
         }));
     };
 
     const toggleSection = async (sectionKey) => {
         if (!sections.value[sectionKey]) return;
-
-        isLoading.value = true;
         const newSections = { ...sections.value };
         newSections[sectionKey].enabled = !newSections[sectionKey].enabled;
-
-        try {
-            await pushSettingsToServer({
-                sections: newSections,
-                heroSlides: heroSlides.value,
-                philosophy: philosophy.value,
-                pageHeroes: pageHeroes.value
-            });
-        } catch (err) {
-            console.error('Error toggling section:', err);
-        } finally {
-            isLoading.value = false;
-        }
+        await pushSettingsToServer({
+            sections: newSections,
+            heroSlides: heroSlides.value,
+            philosophy: philosophy.value,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
+        });
     };
 
-    // Hero Slides CRUD
     const addHeroSlide = async (slide) => {
-        isLoading.value = true;
         const newId = heroSlides.value.length > 0 ? Math.max(...heroSlides.value.map(s => s.id)) + 1 : 1;
         const newSlides = [...heroSlides.value, { ...slide, id: newId }];
-        try {
-            await pushSettingsToServer({
-                sections: sections.value,
-                heroSlides: newSlides,
-                philosophy: philosophy.value,
-                pageHeroes: pageHeroes.value
-            });
-        } finally {
-            isLoading.value = false;
-        }
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: newSlides,
+            philosophy: philosophy.value,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
+        });
     };
 
     const updateHeroSlide = async (id, updated) => {
-        isLoading.value = true;
         const newSlides = heroSlides.value.map(s => s.id === id ? { ...updated, id } : s);
-        try {
-            await pushSettingsToServer({
-                sections: sections.value,
-                heroSlides: newSlides,
-                philosophy: philosophy.value,
-                pageHeroes: pageHeroes.value
-            });
-        } finally {
-            isLoading.value = false;
-        }
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: newSlides,
+            philosophy: philosophy.value,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
+        });
     };
 
     const deleteHeroSlide = async (id) => {
-        isLoading.value = true;
         const newSlides = heroSlides.value.filter(s => s.id !== id);
-        try {
-            await pushSettingsToServer({
-                sections: sections.value,
-                heroSlides: newSlides,
-                philosophy: philosophy.value,
-                pageHeroes: pageHeroes.value
-            });
-        } finally {
-            isLoading.value = false;
-        }
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: newSlides,
+            philosophy: philosophy.value,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
+        });
     };
 
-    // Philosophy CRUD
     const addPhilosophyItem = async (item) => {
-        isLoading.value = true;
         const newId = philosophy.value.length > 0 ? Math.max(...philosophy.value.map(p => p.id)) + 1 : 1;
         const newPhilosophy = [...philosophy.value, { ...item, id: newId }];
-        try {
-            await pushSettingsToServer({
-                sections: sections.value,
-                heroSlides: heroSlides.value,
-                philosophy: newPhilosophy,
-                pageHeroes: pageHeroes.value
-            });
-        } finally {
-            isLoading.value = false;
-        }
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: heroSlides.value,
+            philosophy: newPhilosophy,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
+        });
     };
 
     const updatePhilosophyItem = async (id, updated) => {
-        isLoading.value = true;
         const newPhilosophy = philosophy.value.map(p => p.id === id ? { ...updated, id } : p);
-        try {
-            await pushSettingsToServer({
-                sections: sections.value,
-                heroSlides: heroSlides.value,
-                philosophy: newPhilosophy,
-                pageHeroes: pageHeroes.value
-            });
-        } finally {
-            isLoading.value = false;
-        }
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: heroSlides.value,
+            philosophy: newPhilosophy,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
+        });
     };
 
     const deletePhilosophyItem = async (id) => {
-        isLoading.value = true;
         const newPhilosophy = philosophy.value.filter(p => p.id !== id);
-        try {
-            await pushSettingsToServer({
-                sections: sections.value,
-                heroSlides: heroSlides.value,
-                philosophy: newPhilosophy,
-                pageHeroes: pageHeroes.value
-            });
-        } finally {
-            isLoading.value = false;
-        }
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: heroSlides.value,
+            philosophy: newPhilosophy,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: matchSlideImage.value
+        });
     };
 
-    // Page Heroes Update
     const updatePageHero = async (pageKey, updated) => {
-        if (!pageHeroes.value[pageKey]) return;
-
-        isLoading.value = true;
         const newPageHeroes = { ...pageHeroes.value };
         newPageHeroes[pageKey] = { ...newPageHeroes[pageKey], ...updated };
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: heroSlides.value,
+            philosophy: philosophy.value,
+            pageHeroes: newPageHeroes,
+            matchSlideImage: matchSlideImage.value
+        });
+    };
 
-        try {
-            await pushSettingsToServer({
-                sections: sections.value,
-                heroSlides: heroSlides.value,
-                philosophy: philosophy.value,
-                pageHeroes: newPageHeroes
-            });
-        } finally {
-            isLoading.value = false;
-        }
+    const updateMatchSlideImage = async (newImageUrl) => {
+        await pushSettingsToServer({
+            sections: sections.value,
+            heroSlides: heroSlides.value,
+            philosophy: philosophy.value,
+            pageHeroes: pageHeroes.value,
+            matchSlideImage: newImageUrl
+        });
     };
 
     initSettings();
@@ -374,6 +347,7 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         heroSlides,
         philosophy,
         pageHeroes,
+        matchSlideImage,
         isLoading,
         error,
         initSettings,
@@ -385,6 +359,7 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         updatePhilosophyItem,
         deletePhilosophyItem,
         updatePageHero,
+        updateMatchSlideImage,
         saveToLocalStorage
     };
 });

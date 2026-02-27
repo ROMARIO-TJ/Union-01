@@ -6,6 +6,10 @@
         <!-- FILTER TABS -->
         <section class="filters-section">
             <div class="container">
+                <div class="filter-header">
+                    <h3 class="filter-title">Selecciona una Categoría para ver <span class="text-accent">Tablas y
+                            Partidos</span></h3>
+                </div>
                 <div class="category-tabs">
                     <button class="tab-btn" :class="{ active: selectedCategory === 'Todos' }"
                         @click="selectedCategory = 'Todos'">
@@ -60,20 +64,42 @@
         <!-- UPCOMING MATCHES SECTION -->
         <section class="upcoming-section">
             <div class="container">
-                <h2 class="section-title">Próximos <span class="text-accent">Encuentros</span></h2>
+                <div class="section-title-wrapper">
+                    <h2 class="section-title" style="margin-bottom: 0;">Próximos <span
+                            class="text-accent">Encuentros</span></h2>
 
-                <div v-if="upcomingMatches.length > 0" class="matches-grid">
-                    <div v-for="match in upcomingMatches" :key="match.id" class="match-card upcoming">
+                    <div class="date-filter" v-if="upcomingDates.length > 0">
+                        <select v-model="selectedUpcomingDate" class="date-select">
+                            <option value="Todas">Todas las fechas</option>
+                            <option v-for="date in upcomingDates" :key="date" :value="date">{{ date }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div v-if="displayUpcoming.length > 0" class="matches-grid">
+                    <div v-for="match in displayUpcoming" :key="match.id" class="match-card upcoming">
                         <div class="match-header">
                             <span class="match-category">{{ match.category }}</span>
                             <span class="match-date">{{ match.date }} - {{ match.time }}</span>
                         </div>
                         <div class="match-body">
                             <div class="team home">
+                                <div class="logo-wrapper">
+                                    <img v-if="match.homeLogo || getTeamLogo(match.homeTeam)"
+                                        :src="match.homeLogo || getTeamLogo(match.homeTeam)" class="match-team-logo"
+                                        :alt="match.homeTeam">
+                                    <span v-else class="material-symbols-outlined no-logo-icon">shield</span>
+                                </div>
                                 <span class="team-name">{{ match.homeTeam }}</span>
                             </div>
                             <div class="vs-badge">VS</div>
                             <div class="team away">
+                                <div class="logo-wrapper">
+                                    <img v-if="match.awayLogo || getTeamLogo(match.awayTeam)"
+                                        :src="match.awayLogo || getTeamLogo(match.awayTeam)" class="match-team-logo"
+                                        :alt="match.awayTeam">
+                                    <span v-else class="material-symbols-outlined no-logo-icon">shield</span>
+                                </div>
                                 <span class="team-name">{{ match.awayTeam }}</span>
                             </div>
                         </div>
@@ -92,23 +118,52 @@
         <!-- RESULTS SECTION -->
         <section class="results-section">
             <div class="container">
-                <h2 class="section-title">Últimos <span class="text-accent">Resultados</span></h2>
+                <div class="section-title-wrapper">
+                    <h2 class="section-title" style="margin-bottom: 0;">Últimos <span
+                            class="text-accent">Resultados</span></h2>
 
-                <div v-if="finishedMatches.length > 0" class="matches-grid">
-                    <div v-for="match in finishedMatches" :key="match.id" class="match-card result">
+                    <div class="date-filter" v-if="finishedDates.length > 0">
+                        <select v-model="selectedFinishedDate" class="date-select">
+                            <option value="Todas">Todas las fechas</option>
+                            <option v-for="date in finishedDates" :key="date" :value="date">{{ date }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div v-if="displayFinished.length > 0" class="matches-grid">
+                    <div v-for="match in displayFinished" :key="match.id" class="match-card result">
                         <div class="match-header">
                             <span class="match-category">{{ match.category }}</span>
                             <span class="match-date">{{ match.date }}</span>
                         </div>
-                        <div class="match-body">
-                            <div class="team home" :class="{ winner: match.homeScore > match.awayScore }">
-                                <span class="team-name">{{ match.homeTeam }}</span>
-                                <span class="score">{{ match.homeScore }}</span>
+                        <div class="match-body score-layout">
+                            <!-- Local -->
+                            <div class="team-result-box home" :class="{ winner: match.homeScore > match.awayScore }">
+                                <div class="logo-wrapper result-logo">
+                                    <img v-if="match.homeLogo || getTeamLogo(match.homeTeam)"
+                                        :src="match.homeLogo || getTeamLogo(match.homeTeam)" class="match-team-logo"
+                                        :alt="match.homeTeam">
+                                    <span v-else class="material-symbols-outlined no-logo-icon">shield</span>
+                                </div>
+                                <span class="team-label">{{ match.homeTeam }}</span>
                             </div>
-                            <div class="vs-badge">-</div>
-                            <div class="team away" :class="{ winner: match.awayScore > match.homeScore }">
-                                <span class="score">{{ match.awayScore }}</span>
-                                <span class="team-name">{{ match.awayTeam }}</span>
+
+                            <!-- Marcador -->
+                            <div class="score-display">
+                                <span class="score-num">{{ match.homeScore }}</span>
+                                <span class="score-divider">:</span>
+                                <span class="score-num">{{ match.awayScore }}</span>
+                            </div>
+
+                            <!-- Visitante -->
+                            <div class="team-result-box away" :class="{ winner: match.awayScore > match.homeScore }">
+                                <div class="logo-wrapper result-logo">
+                                    <img v-if="match.awayLogo || getTeamLogo(match.awayTeam)"
+                                        :src="match.awayLogo || getTeamLogo(match.awayTeam)" class="match-team-logo"
+                                        :alt="match.awayTeam">
+                                    <span v-else class="material-symbols-outlined no-logo-icon">shield</span>
+                                </div>
+                                <span class="team-label">{{ match.awayTeam }}</span>
                             </div>
                         </div>
                         <div class="match-footer">
@@ -127,7 +182,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useMatchesStore } from '../store/matchesStore';
 import { useTournamentStore } from '../store/tournamentStore';
 import SponsorsCarousel from '../components/SponsorsCarousel.vue';
@@ -139,10 +194,19 @@ const tournamentStore = useTournamentStore();
 
 const selectedCategory = ref('Todos');
 
+onMounted(() => {
+    matchesStore.initMatches();
+    tournamentStore.initStandings();
+});
+
+const normalize = (cat) =>
+    cat?.trim().toLowerCase().replace(/\s+/g, ' ').replace('sub-', 'sub ').replace(/sub(\d+)/, 'sub $1');
+
 const filteredUpcoming = computed(() => {
     let matches = matchesStore.getUpcomingMatches();
     if (selectedCategory.value !== 'Todos') {
-        matches = matches.filter(m => m.category === selectedCategory.value);
+        const normalizedSelected = normalize(selectedCategory.value);
+        matches = matches.filter(m => normalize(m.category) === normalizedSelected);
     }
     return matches;
 });
@@ -150,7 +214,8 @@ const filteredUpcoming = computed(() => {
 const filteredFinished = computed(() => {
     let matches = matchesStore.getFinishedMatches();
     if (selectedCategory.value !== 'Todos') {
-        matches = matches.filter(m => m.category === selectedCategory.value);
+        const normalizedSelected = normalize(selectedCategory.value);
+        matches = matches.filter(m => normalize(m.category) === normalizedSelected);
     }
     return matches;
 });
@@ -160,9 +225,75 @@ const currentStandings = computed(() => {
     return tournamentStore.getStandingsByCategory(selectedCategory.value);
 });
 
-// Update template refs to use filtered computed props (done in template replacement below if needed, here we just rename for consistency)
-const upcomingMatches = filteredUpcoming;
-const finishedMatches = filteredFinished;
+const getTeamLogo = (teamName) => {
+    const name = teamName?.toUpperCase() || '';
+    if (name.includes('UNION JAGUERA')) return '/img/Sub-15/UNION_JAGUERA.png';
+    if (name.includes('ALIANZA FC')) return '/img/Sub-15/ALIANZA_FC.png';
+    if (name.includes('INTER JUNIOR')) return '/img/Sub-15/ITER_JUNIOR_CODAZZI.png';
+    if (name.includes('EMBAJADORES')) return '/img/Sub-15/EMBAJADORES_BANCO_MAGDALENA.png';
+    if (name.includes('ATLETICO CESAR')) return '/img/Sub-15/ATLETICO_CESAR.png';
+    if (name.includes('ATLETAS DEL')) return '/img/Sub-15/ATLETAS_BOSCONIA.png';
+    if (name.includes('LA GLORIA')) return '/img/Sub-15/CLUB_ATLETICO_LA_GLORIA.png';
+    if (name.includes('FUTURAS ESTRELLAS')) return '/img/Sub-15/FUTURAS_ESTRELLAS_VALLEDUPAR.png';
+    if (name.includes('MANCHESTER')) return '/img/Sub-15/MANCHESTER_VALLEDUPAR.png';
+    if (name.includes('ACADEMIA VALLENATA')) return '/img/Sub-15/ACADEMIA_VALLENATA.png';
+    if (name.includes('DESCANSA')) return '/img/Sub-15/DESCANSO.png';
+    if (name.includes('VACAD VALLEDUPAR') || name.includes('ACAD VALLEDUPAR')) return '/img/Sub-15/ACADEMIA_VALLEDUPAR.png';
+    return '';
+};
+
+const selectedUpcomingDate = ref('Todas');
+const selectedFinishedDate = ref('Todas');
+
+const upcomingDates = computed(() => {
+    return [...new Set(filteredUpcoming.value.map(m => m.date))];
+});
+
+const finishedDates = computed(() => {
+    return [...new Set(filteredFinished.value.map(m => m.date))];
+});
+
+// Función para aplicar la auto-selección inteligente
+const applyAutoSelection = () => {
+    if (upcomingDates.value.length > 0) {
+        selectedUpcomingDate.value = upcomingDates.value[0];
+    } else {
+        selectedUpcomingDate.value = 'Todas';
+    }
+
+    if (finishedDates.value.length > 0) {
+        // En los terminados mostramos siempre la última fecha jugada (asumiendo orden cronológico)
+        selectedFinishedDate.value = finishedDates.value[finishedDates.value.length - 1];
+    } else {
+        selectedFinishedDate.value = 'Todas';
+    }
+};
+
+// Auto-seleccionar fechas cuando cambia la categoría
+watch(selectedCategory, () => {
+    applyAutoSelection();
+});
+
+// Auto-seleccionar al cargar los datos por primera vez (cuando matches pasa de 0 a tener elementos)
+watch(() => matchesStore.matches, (newMatches, oldMatches) => {
+    if (newMatches.length > 0 && (!oldMatches || oldMatches.length === 0)) {
+        // Usamos un pequeño delay para asegurar que los computed properties (upcomingDates, etc) se hayan actualizado
+        setTimeout(() => {
+            applyAutoSelection();
+        }, 50);
+    }
+}, { deep: true, immediate: true });
+
+const displayUpcoming = computed(() => {
+    if (selectedUpcomingDate.value === 'Todas') return filteredUpcoming.value;
+    return filteredUpcoming.value.filter(m => m.date === selectedUpcomingDate.value);
+});
+
+const displayFinished = computed(() => {
+    if (selectedFinishedDate.value === 'Todas') return filteredFinished.value;
+    return filteredFinished.value.filter(m => m.date === selectedFinishedDate.value);
+});
+
 </script>
 
 <style scoped>
@@ -172,6 +303,51 @@ const finishedMatches = filteredFinished;
     padding-top: 3rem;
     padding-bottom: 1rem;
     background: var(--bg-primary);
+}
+
+.filter-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.filter-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.section-title-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.date-filter {
+    display: flex;
+    align-items: center;
+}
+
+.date-select {
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--accent-light);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.date-select:hover,
+.date-select:focus {
+    border-color: var(--accent-color);
+    outline: none;
 }
 
 .upcoming-section,
@@ -264,13 +440,76 @@ const finishedMatches = filteredFinished;
 
 .team {
     flex: 1;
+    min-width: 0;
+    /* Previene que nombres largos ensanchen la tarjeta */
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 0.75rem;
     font-weight: 700;
     color: var(--text-primary);
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+}
+
+.team-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 140px;
+    /* Limitar ancho para nombres largos */
+}
+
+.logo-wrapper {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+}
+
+.logo-wrapper.small {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 0;
+}
+
+.match-team-logo {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.match-team-logo.small {
+    width: 24px;
+    height: 24px;
+}
+
+.no-logo-icon {
+    font-size: 24px;
+    color: #cbd5e1;
+}
+
+.no-logo-icon.small {
+    font-size: 16px;
+}
+
+.team-name {
+    font-size: 0.8rem;
+    /* Nombres más pequeños */
+    font-weight: 700;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    /* Máximo 2 líneas */
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .vs-badge {
@@ -297,36 +536,76 @@ const finishedMatches = filteredFinished;
     border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-/* RESULTS SPECIFIC */
-.match-card.result .match-body {
-    padding: 1.5rem;
-}
-
-.match-card.result .team {
-    flex-direction: row;
+/* RESULTS SPECIFIC REDESIGN */
+.score-layout {
+    display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 0.5rem;
+    justify-content: space-around;
+    padding: 1.5rem !important;
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.02));
 }
 
-.match-card.result .team.home {
-    text-align: right;
+.team-result-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
 }
 
-.match-card.result .team.away {
-    flex-direction: row;
-    /* Keep standard order for away */
-    text-align: left;
+.logo-wrapper.result-logo {
+    width: 70px;
+    height: 70px;
+    background: #fff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    border: 2px solid transparent;
 }
 
-.match-card.result .score {
-    font-size: 1.8rem;
+.winner .logo-wrapper.result-logo {
+    border-color: var(--accent-color);
+}
+
+.team-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-align: center;
+    text-transform: uppercase;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 100px;
+}
+
+.winner .team-label {
+    color: var(--accent-color);
+}
+
+.score-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.2rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    margin: 0 1rem;
+}
+
+.score-num {
+    font-size: 2.2rem;
     font-weight: 900;
     color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
 }
 
-.match-card.result .team.winner .score {
+.score-divider {
+    font-size: 1.5rem;
+    font-weight: 700;
     color: var(--accent-color);
+    opacity: 0.5;
 }
 
 .status-finished {
@@ -473,30 +752,28 @@ const finishedMatches = filteredFinished;
 /* RESPONSIVE */
 @media (max-width: 768px) {
 
-    .match-card.upcoming .match-body,
-    .match-card.result .match-body {
+    .match-card.upcoming .match-body {
         flex-direction: column;
         gap: 1rem;
     }
 
-    .match-card.result .team {
-        width: 100%;
-        justify-content: center;
-        /* Center content when stacked */
+    .score-layout {
+        gap: 0.5rem;
+        padding: 1rem !important;
     }
 
-    .match-card.result .team.home {
-        text-align: center;
-        flex-direction: row-reverse;
-        /* Keep score next to name but centered */
-        justify-content: center;
-        gap: 1rem;
+    .score-num {
+        font-size: 1.6rem;
     }
 
-    .match-card.result .team.away {
-        text-align: center;
-        justify-content: center;
-        gap: 1rem;
+    .logo-wrapper.result-logo {
+        width: 50px;
+        height: 50px;
+    }
+
+    .team-label {
+        font-size: 0.65rem;
+        max-width: 80px;
     }
 
     .vs-badge {

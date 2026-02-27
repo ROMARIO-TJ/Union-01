@@ -68,6 +68,7 @@ const navigation = computed(() => {
       { name: 'Paz y Salvo', to: '/admin/financiero/paz-y-salvo', icon: 'fa-solid fa-file-invoice' },
       { name: 'Reportes', to: '/admin/financiero/reportes', icon: 'fa-solid fa-chart-pie' },
       { name: 'Gestión Jugadores', to: '/admin/players', icon: 'fa-solid fa-users-gear' },
+      { name: 'Usuarios (Padres)', to: '/admin/users', icon: 'fa-solid fa-user-lock' },
       { name: 'Categorías', to: '/admin/categories', icon: 'fa-solid fa-tags' }
     );
   }
@@ -129,7 +130,7 @@ const navigation = computed(() => {
         </div>
         <div class="admin-header__user">
           <span class="welcome-text">Bienvenido, <strong>{{ currentUser?.name || currentUser?.username
-          }}</strong></span>
+              }}</strong></span>
           <div class="user-avatar-mini">
             <i class="fa-solid fa-user-shield"></i>
           </div>

@@ -11,7 +11,7 @@ const password = ref('');
 const error = ref('');
 const loading = ref(false);
 
-const handleLogin = () => {
+const handleLogin = async () => {
   if (!username.value || !password.value) {
     error.value = 'Por favor, completa todos los campos';
     return;
@@ -20,7 +20,7 @@ const handleLogin = () => {
   loading.value = true;
   error.value = '';
 
-  const result = authStore.login(username.value, password.value, 'admin');
+  const result = await authStore.login(username.value, password.value, 'admin');
   if (!result.success) {
     error.value = result.error;
   } else {
@@ -45,7 +45,8 @@ const handleLogin = () => {
         <div class="login-brand__inner">
           <img src="../../assets/img/logosinfondo.png" alt="Logo" class="login-brand__logo">
           <h1 class="login-brand__title">Panel<br>Administrativo</h1>
-          <p class="login-brand__subtitle">Sistema de gestión interno del Club Unión Jeguera. Acceso restringido a personal autorizado.</p>
+          <p class="login-brand__subtitle">Sistema de gestión interno del Club Unión Jeguera. Acceso restringido a
+            personal autorizado.</p>
 
           <div class="login-brand__badges">
             <div class="badge">
@@ -80,14 +81,8 @@ const handleLogin = () => {
               <label for="username">Usuario</label>
               <div class="login-field__input">
                 <i class="fa-solid fa-user"></i>
-                <input
-                  id="username"
-                  v-model="username"
-                  type="text"
-                  placeholder="Nombre de usuario"
-                  autocomplete="username"
-                  required
-                >
+                <input id="username" v-model="username" type="text" placeholder="Nombre de usuario"
+                  autocomplete="username" required>
               </div>
             </div>
 
@@ -95,14 +90,8 @@ const handleLogin = () => {
               <label for="password">Contraseña</label>
               <div class="login-field__input">
                 <i class="fa-solid fa-lock"></i>
-                <input
-                  id="password"
-                  v-model="password"
-                  type="password"
-                  placeholder="••••••••"
-                  autocomplete="current-password"
-                  required
-                >
+                <input id="password" v-model="password" type="password" placeholder="••••••••"
+                  autocomplete="current-password" required>
               </div>
             </div>
 
@@ -202,7 +191,7 @@ const handleLogin = () => {
   right: -20%;
   width: 500px;
   height: 500px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 50%;
 }
 
@@ -213,7 +202,7 @@ const handleLogin = () => {
   left: -10%;
   width: 400px;
   height: 400px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 50%;
 }
 
@@ -226,7 +215,7 @@ const handleLogin = () => {
 .login-brand__logo {
   width: 90px;
   margin-bottom: 2.5rem;
-  filter: drop-shadow(0 0 25px rgba(255,255,255,0.2));
+  filter: drop-shadow(0 0 25px rgba(255, 255, 255, 0.2));
 }
 
 .login-brand__title {
@@ -239,7 +228,7 @@ const handleLogin = () => {
 
 .login-brand__subtitle {
   font-size: 1rem;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255, 255, 255, 0.65);
   line-height: 1.7;
   margin-bottom: 3rem;
 }
@@ -254,8 +243,8 @@ const handleLogin = () => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 0.9rem 1.2rem;
   font-size: 0.9rem;
@@ -263,7 +252,7 @@ const handleLogin = () => {
 }
 
 .badge i {
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
   width: 18px;
   text-align: center;
 }
@@ -284,7 +273,7 @@ const handleLogin = () => {
   border-radius: 24px;
   padding: 2.5rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .login-card__header {

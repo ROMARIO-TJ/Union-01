@@ -33,8 +33,34 @@
                             <p>{{ noticia.fullContent || generateFullContent() }}</p>
                         </div>
 
+                        <!-- Gallery Carousel Section -->
+                        <div v-if="getGallery().length > 0" class="article-gallery-carousel">
+                            <div class="gallery-header">
+                                <h3 class="gallery-title">Galería de <span class="text-accent">Fotos</span></h3>
+                                <div class="carousel-nav">
+                                    <button @click="scrollGallery('left')" class="nav-btn"><i
+                                            class="fa-solid fa-chevron-left"></i></button>
+                                    <button @click="scrollGallery('right')" class="nav-btn"><i
+                                            class="fa-solid fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="gallery-track no-scrollbar" ref="galleryTrack">
+                                <div v-for="(img, idx) in getGallery()" :key="idx" class="gallery-card-mini"
+                                    @click="openLightbox(idx)">
+                                    <div class="card-img-box">
+                                        <img :src="img" loading="lazy">
+                                        <div class="card-overlay">
+                                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                        </div>
+                                    </div>
+                                    <span class="img-idx">Imagen {{ idx + 1 }}</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Share Section -->
-                        <div class="share-section">
+                        <div v-if="parseInt(noticia.show_social) !== 0" class="share-section">
                             <h3>Compartir esta noticia</h3>
                             <div class="share-buttons">
                                 <button class="share-btn facebook">
@@ -70,13 +96,32 @@
             </div>
         </div>
 
-        <!-- Not Found -->
+        <!-- Not Found Section -->
         <div v-else class="not-found">
             <div class="container">
                 <i class="fa-solid fa-newspaper"></i>
                 <h2>Noticia no encontrada</h2>
                 <p>Lo sentimos, no pudimos encontrar la noticia que buscas.</p>
                 <router-link to="/noticias" class="btn-back">Volver a noticias</router-link>
+            </div>
+        </div>
+
+        <!-- Lightbox Modal -->
+        <div v-if="lightboxOpen" class="lightbox-overlay" @click.self="closeLightbox">
+            <button class="lightbox-close" @click="closeLightbox" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24" fill="none" class="close-icon-svg" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="lightbox-content">
+                <img :src="getGallery()[lightboxIndex]" class="lightbox-img">
+
+                <div v-if="getGallery().length > 1" class="lightbox-navs">
+                    <button class="l-nav prev" @click="prevLightbox">&lsaquo;</button>
+                    <button class="l-nav next" @click="nextLightbox">&rsaquo;</button>
+                </div>
+
+                <div class="lightbox-counter">{{ lightboxIndex + 1 }} / {{ getGallery().length }}</div>
             </div>
         </div>
     </div>
@@ -107,13 +152,72 @@ const relatedNews = computed(() => {
 
 const generateFullContent = () => {
     if (noticia.value?.content) return noticia.value.content;
-    
+
     return `${noticia.value?.excerpt || ''}\n\nEste es un contenido generado automáticamente. En el panel administrativo puedes editar este texto para que sea más completo.\n\nEl Unión Jeguera continúa trabajando día a día para ofrecer lo mejor a su afición y seguir creciendo como institución deportiva. Con el apoyo de todos, seguimos construyendo historia.`;
 };
 
 const navigateToNews = (id) => {
     router.push(`/noticias/${id}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+const getGallery = () => {
+    if (!noticia.value?.gallery) return [];
+    if (typeof noticia.value.gallery === 'string') {
+        try {
+            return JSON.parse(noticia.value.gallery);
+        } catch (e) {
+            return [];
+        }
+    }
+    return noticia.value.gallery;
+};
+
+const galleryTrack = ref(null);
+
+const scrollGallery = (direction) => {
+    if (galleryTrack.value) {
+        const amount = 300;
+        galleryTrack.value.scrollBy({
+            left: direction === 'left' ? -amount : amount,
+            behavior: 'smooth'
+        });
+    }
+};
+
+const activeSlide = ref(0);
+const lightboxOpen = ref(false);
+const lightboxIndex = ref(0);
+
+const nextSlide = () => {
+    const total = getGallery().length;
+    activeSlide.value = (activeSlide.value + 1) % total;
+};
+
+const prevSlide = () => {
+    const total = getGallery().length;
+    activeSlide.value = (activeSlide.value - 1 + total) % total;
+};
+
+const openLightbox = (index) => {
+    lightboxIndex.value = index;
+    lightboxOpen.value = true;
+    document.body.style.overflow = 'hidden';
+};
+
+const closeLightbox = () => {
+    lightboxOpen.value = false;
+    document.body.style.overflow = 'auto';
+};
+
+const nextLightbox = () => {
+    const total = getGallery().length;
+    lightboxIndex.value = (lightboxIndex.value + 1) % total;
+};
+
+const prevLightbox = () => {
+    const total = getGallery().length;
+    lightboxIndex.value = (lightboxIndex.value - 1 + total) % total;
 };
 
 // Re-cargar si cambia el ID en la URL
@@ -223,13 +327,234 @@ onMounted(() => {
     white-space: pre-line;
 }
 
+/* GALLERY CAROUSEL (CATEGORIES STYLE) */
+.article-gallery-carousel {
+    margin-top: 5rem;
+    padding-top: 3rem;
+    border-top: 1px solid var(--bg-secondary);
+}
+
+.gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.gallery-title {
+    font-size: 1.6rem;
+    font-weight: 900;
+    margin-bottom: 0;
+    text-transform: uppercase;
+    letter-spacing: -1px;
+}
+
+.carousel-nav {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.nav-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 0;
+    border: 1px solid rgba(17, 212, 66, 0.2);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.nav-btn:hover {
+    background: var(--accent-color);
+    color: #102215;
+    transform: translateY(-2px);
+}
+
+.gallery-track {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding: 1rem 0 2rem;
+    scroll-snap-type: x mandatory;
+}
+
+.gallery-card-mini {
+    flex: 0 0 240px;
+    background: var(--card-bg);
+    border: 1px solid rgba(17, 212, 66, 0.1);
+    padding: 0.8rem;
+    border-radius: 0;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.gallery-card-mini:hover {
+    border-color: var(--accent-color);
+    transform: translateY(-8px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.card-img-box {
+    width: 100%;
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.card-img-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s ease;
+}
+
+.card-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 212, 66, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.gallery-card-mini:hover .card-img-box img {
+    transform: scale(1.1);
+}
+
+.gallery-card-mini:hover .card-overlay {
+    opacity: 1;
+}
+
+.img-idx {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--accent-color);
+    letter-spacing: 1px;
+}
+
+/* LIGHTBOX */
+.lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.lightbox-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lightbox-img {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 8px;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    object-fit: contain;
+}
+
+.lightbox-close {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 2010;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.close-icon-svg {
+    width: 100%;
+    height: 100%;
+    stroke: rgba(255, 255, 255, 0.4);
+    stroke-width: 1px;
+    /* Ultra thin like categories */
+    transition: stroke 0.3s ease;
+}
+
+.lightbox-close:hover {
+    transform: rotate(90deg);
+}
+
+.lightbox-close:hover .close-icon-svg {
+    stroke: #fff;
+}
+
+.lightbox-navs {
+    position: absolute;
+    width: 120%;
+    top: 50%;
+    left: -10%;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+.l-nav {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 3rem;
+    border: none;
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.l-nav:hover {
+    background: var(--accent-color);
+}
+
+.lightbox-counter {
+    color: #94a3b8;
+    margin-top: 1.5rem;
+    font-weight: 700;
+}
+
 /* SHARE SECTION */
 .share-section {
-    margin-top: 3rem;
-    padding: 2rem;
+    margin-top: 4rem;
+    padding: 2.5rem;
     background: var(--bg-secondary);
-    border-radius: 15px;
+    border-radius: 20px;
     text-align: center;
+    border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
 .share-section h3 {

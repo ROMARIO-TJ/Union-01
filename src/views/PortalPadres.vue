@@ -22,7 +22,7 @@ const registerForm = ref({
 const error = ref('');
 const loading = ref(false);
 
-const handleLogin = () => {
+const handleLogin = async () => {
   if (!loginForm.value.email || !loginForm.value.password) {
     error.value = 'Por favor, completa todos los campos';
     return;
@@ -30,7 +30,7 @@ const handleLogin = () => {
   loading.value = true;
   error.value = '';
 
-  const result = authStore.login(loginForm.value.email, loginForm.value.password, 'parent');
+  const result = await authStore.login(loginForm.value.email, loginForm.value.password, 'parent');
 
   if (result.success) {
     if (route.query.redirect) {
@@ -45,6 +45,28 @@ const handleLogin = () => {
     error.value = result.error;
   }
   loading.value = false;
+};
+
+// LOGIN DE GOOGLE REAL CON FIREBASE
+const handleGoogleLogin = async () => {
+  error.value = '';
+  loading.value = true;
+
+  try {
+    const result = await authStore.loginWithGoogle('parent');
+
+    if (result.success) {
+      router.push('/admin/portal/hijo');
+    } else {
+      // Aquí atrapamos el error detallado que configuramos en el Store
+      error.value = result.error;
+    }
+  } catch (err) {
+    console.error("Error capturado en vista:", err);
+    error.value = 'Error técnico: ' + (err.message || 'No se pudo iniciar la ventana de Google');
+  } finally {
+    loading.value = false;
+  }
 };
 
 const handleRegister = async () => {
@@ -201,6 +223,15 @@ const switchTab = (tab) => {
               ¿No tienes cuenta?
               <button @click="switchTab('register')" class="link-btn">Regístrate aquí</button>
             </p>
+
+            <div class="social-divider">
+              <span>O continúa con</span>
+            </div>
+
+            <button type="button" @click="handleGoogleLogin" class="google-btn">
+              <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google">
+              Continuar con Google
+            </button>
           </div>
 
           <!-- REGISTER -->
@@ -245,7 +276,8 @@ const switchTab = (tab) => {
                 </div>
                 <div class="field">
                   <label>Confirmar <span class="required">*</span></label>
-                  <input v-model="registerForm.confirmPassword" type="password" placeholder="Repite la contraseña" required>
+                  <input v-model="registerForm.confirmPassword" type="password" placeholder="Repite la contraseña"
+                    required>
                 </div>
               </div>
 
@@ -263,6 +295,15 @@ const switchTab = (tab) => {
               ¿Ya tienes cuenta?
               <button @click="switchTab('login')" class="link-btn">Inicia sesión</button>
             </p>
+
+            <div class="social-divider">
+              <span>O continúa con</span>
+            </div>
+
+            <button type="button" @click="handleGoogleLogin" class="google-btn">
+              <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google">
+              Continuar con Google
+            </button>
           </div>
         </div>
       </div>
@@ -326,8 +367,15 @@ const switchTab = (tab) => {
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-30px) scale(1.05); }
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-30px) scale(1.05);
+  }
 }
 
 /* Layout */
@@ -345,7 +393,8 @@ const switchTab = (tab) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6rem 3rem 4rem; /* top padding para el header fijo */
+  padding: 6rem 3rem 4rem;
+  /* top padding para el header fijo */
   color: white;
 }
 
@@ -357,7 +406,7 @@ const switchTab = (tab) => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255, 255, 255, 0.6);
   text-decoration: none;
   font-size: 0.85rem;
   margin-bottom: 3rem;
@@ -393,7 +442,7 @@ const switchTab = (tab) => {
 
 .brand-subtitle {
   font-size: 1.05rem;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255, 255, 255, 0.65);
   line-height: 1.7;
   margin-bottom: 3rem;
 }
@@ -432,7 +481,7 @@ const switchTab = (tab) => {
 
 .brand-feature p {
   font-size: 0.82rem;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255, 255, 255, 0.5);
   margin: 0;
 }
 
@@ -442,10 +491,11 @@ const switchTab = (tab) => {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 6rem 2rem 3rem; /* 6rem top = espacio para el header fijo */
-  background: rgba(255,255,255,0.03);
+  padding: 6rem 2rem 3rem;
+  /* 6rem top = espacio para el header fijo */
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255,255,255,0.07);
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
   overflow-y: auto;
   min-height: 100vh;
 }
@@ -453,8 +503,8 @@ const switchTab = (tab) => {
 .form-card {
   width: 100%;
   max-width: 440px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 24px;
   overflow: hidden;
   backdrop-filter: blur(10px);
@@ -463,7 +513,7 @@ const switchTab = (tab) => {
 /* Tabs */
 .form-tabs {
   display: flex;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .form-tab {
@@ -471,7 +521,7 @@ const switchTab = (tab) => {
   padding: 1.2rem;
   background: none;
   border: none;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255, 255, 255, 0.4);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -506,7 +556,7 @@ const switchTab = (tab) => {
 }
 
 .form-intro p {
-  color: rgba(255,255,255,0.5);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 0.9rem;
 }
 
@@ -525,7 +575,7 @@ const switchTab = (tab) => {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -544,7 +594,7 @@ const switchTab = (tab) => {
 .field-input i {
   position: absolute;
   left: 1rem;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255, 255, 255, 0.3);
   font-size: 0.9rem;
 }
 
@@ -552,8 +602,8 @@ const switchTab = (tab) => {
 .field input {
   width: 100%;
   padding: 0.85rem 1rem;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   color: white;
   font-family: 'Poppins', sans-serif;
@@ -576,7 +626,7 @@ const switchTab = (tab) => {
 
 .field-input input::placeholder,
 .field input::placeholder {
-  color: rgba(255,255,255,0.2);
+  color: rgba(255, 255, 255, 0.2);
 }
 
 /* Error */
@@ -637,7 +687,7 @@ const switchTab = (tab) => {
   text-align: center;
   margin-top: 1.5rem;
   font-size: 0.85rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .link-btn {
@@ -658,6 +708,52 @@ const switchTab = (tab) => {
   text-decoration: underline;
 }
 
+/* Google & Social Styles */
+.social-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.8rem;
+}
+
+.social-divider::before,
+.social-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.google-btn {
+  width: 100%;
+  padding: 0.85rem;
+  background: white;
+  color: #444;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  transition: all 0.3s;
+}
+
+.google-btn img {
+  width: 20px;
+}
+
+.google-btn:hover {
+  background: #f1f1f1;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .portal-brand {
@@ -673,7 +769,8 @@ const switchTab = (tab) => {
 
 @media (max-width: 480px) {
   .portal-form-side {
-    padding: 5rem 1rem 2rem; /* top padding para el header */
+    padding: 5rem 1rem 2rem;
+    /* top padding para el header */
     align-items: flex-start;
   }
 

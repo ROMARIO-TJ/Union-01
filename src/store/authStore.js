@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { apiService } from '../services/api';
+import { auth, googleProvider, signInWithPopup } from '../services/firebase';
 
 export const useAuthStore = defineStore('auth', () => {
     // ADMIN STATE
@@ -10,19 +12,11 @@ export const useAuthStore = defineStore('auth', () => {
     const parentUser = ref(null);
     const isParentAuthenticated = ref(false);
 
-    const parents = ref([]); // Lista de padres registrados dinámicamente
-
     const ROLES = {
         ADMIN_CONTENIDO: 'admin_contenido',
         ADMIN_FINANCIERO: 'admin_financiero',
         PADRE_FAMILIA: 'padre_familia'
     };
-
-    const CREDENTIALS = [
-        { username: 'union', role: ROLES.ADMIN_CONTENIDO, password: 'union3023', name: 'Administración Unión Jeguera' },
-        { username: 'roma', role: ROLES.ADMIN_FINANCIERO, password: '302304', name: 'Finanzas Unión Jeguera' },
-        { username: 'padre', role: ROLES.PADRE_FAMILIA, password: 'padre123', name: 'Padre Demo', child_id: 1 }
-    ];
 
     // Inicializar desde localStorage
     const initAuth = () => {
@@ -50,66 +44,103 @@ export const useAuthStore = defineStore('auth', () => {
             }
         }
 
-        // Cargar padres registrados
-        const savedParents = localStorage.getItem('registered_parents');
-        if (savedParents) {
-            parents.value = JSON.parse(savedParents);
+        // Cargar estado inicial (esto se hace al iniciar la app)
+    };
+
+    // Generic Login (NOW ASYNC)
+    const login = async (username, password, type = 'admin') => {
+        try {
+            const response = await apiService.request('auth', 'POST', {
+                email: username,
+                password: password,
+                _type: type
+            });
+
+            if (response.status === 'success' && response.user) {
+                const userData = response.user;
+
+                if (type === 'admin') {
+                    if (userData.role === ROLES.PADRE_FAMILIA) {
+                        return { success: false, error: 'Esta cuenta no tiene permisos administrativos.' };
+                    }
+                    isAdminAuthenticated.value = true;
+                    adminUser.value = userData;
+                    localStorage.setItem('auth_admin', JSON.stringify(userData));
+                } else {
+                    if (userData.role !== ROLES.PADRE_FAMILIA) {
+                        return { success: false, error: 'Esta cuenta no es de padre de familia.' };
+                    }
+                    isParentAuthenticated.value = true;
+                    parentUser.value = userData;
+                    localStorage.setItem('auth_parent', JSON.stringify(userData));
+                }
+
+                return { success: true, user: userData };
+            }
+            return { success: false, error: response.message || 'Credenciales incorrectas' };
+        } catch (err) {
+            console.error('Login error:', err);
+            return { success: false, error: 'Error de conexión con el servidor' };
         }
     };
 
-    // Generic Login
-    const login = (username, password, type = 'admin') => {
-        // Primero buscar en los predefinidos
-        let foundUser = CREDENTIALS.find(u => u.username === username && u.password === password);
+    // Google Login REAL con Firebase
+    const loginWithGoogle = async (type = 'parent') => {
+        try {
+            // 1. Abrir ventana emergente REAL de Google (vía Firebase)
+            const result = await signInWithPopup(auth, googleProvider);
+            const user = result.user;
 
-        // Si no está, buscar en los padres registrados (usando email como username)
-        if (!foundUser) {
-            foundUser = parents.value.find(p => p.email === username && p.password === password);
-            if (foundUser) {
-                foundUser = { ...foundUser, role: ROLES.PADRE_FAMILIA };
-            }
-        }
+            // 2. Enviar datos a tu API en Hostinger para guardar/actualizar en MySQL
+            const response = await apiService.request('auth', 'POST', {
+                google_id: user.uid,
+                email: user.email,
+                name: user.displayName,
+                photo: user.photoURL,
+                _type: type
+            });
 
-        if (foundUser) {
-            const { password, ...userData } = foundUser;
-
-            if (type === 'admin') {
-                if (userData.role === ROLES.PADRE_FAMILIA) {
-                    return { success: false, error: 'Esta cuenta no tiene permisos administrativos.' };
+            if (response.status === 'success' && response.user) {
+                const userData = response.user;
+                if (type === 'admin') {
+                    isAdminAuthenticated.value = true;
+                    adminUser.value = userData;
+                    localStorage.setItem('auth_admin', JSON.stringify(userData));
+                } else {
+                    isParentAuthenticated.value = true;
+                    parentUser.value = userData;
+                    localStorage.setItem('auth_parent', JSON.stringify(userData));
                 }
-                isAdminAuthenticated.value = true;
-                adminUser.value = userData;
-                localStorage.setItem('auth_admin', JSON.stringify(userData));
-            } else {
-                if (userData.role !== ROLES.PADRE_FAMILIA) {
-                    return { success: false, error: 'Esta cuenta no es de padre de familia.' };
-                }
-                isParentAuthenticated.value = true;
-                parentUser.value = userData;
-                localStorage.setItem('auth_parent', JSON.stringify(userData));
+                return { success: true, user: userData };
             }
-
-            return { success: true, user: userData };
+            return { success: false, error: 'Error al sincronizar con la base de datos' };
+        } catch (err) {
+            console.error('Firebase Auth Error Completo:', err);
+            // Mostrar el mensaje técnico para diagnosticar
+            const errorMsg = err.message || 'Error desconocido';
+            if (err.code === 'auth/popup-closed-by-user') {
+                return { success: false, error: 'Cerraste la ventana de Google' };
+            }
+            return { success: false, error: `Error de Google: ${errorMsg}` };
         }
-        return { success: false, error: 'Credenciales incorrectas' };
     };
 
     // Registro de Padres
-    const register = (parentData) => {
-        const exists = parents.value.some(p => p.email === parentData.email);
-        if (exists) return { success: false, error: 'El correo ya está registrado' };
+    const register = async (parentData) => {
+        try {
+            const response = await apiService.request('users', 'POST', {
+                ...parentData,
+                role: ROLES.PADRE_FAMILIA
+            });
 
-        const newParent = {
-            ...parentData,
-            role: ROLES.PADRE_FAMILIA,
-            id: Date.now()
-        };
-
-        parents.value.push(newParent);
-        localStorage.setItem('registered_parents', JSON.stringify(parents.value));
-
-        // Auto login as parent
-        return login(parentData.email, parentData.password, 'parent');
+            if (response.status === 'success') {
+                // Auto login as parent
+                return await login(parentData.email, parentData.password, 'parent');
+            }
+            return { success: false, error: response.message || 'Error en el registro' };
+        } catch (err) {
+            return { success: false, error: 'No se pudo completar el registro' };
+        }
     };
 
     const logout = (type = 'admin') => {
@@ -145,6 +176,7 @@ export const useAuthStore = defineStore('auth', () => {
         user, // Legacy (or combined)
         ROLES,
         login,
+        loginWithGoogle,
         register,
         logout,
         hasRole

@@ -92,8 +92,14 @@ watch(() => homeSettings.pageHeroes[props.pageKey], (newVal) => {
 }, { deep: true });
 
 // Track changes
-watch(heroData, () => {
-    hasChanges.value = true;
+watch(heroData, (newVal, oldVal) => {
+    // Only set hasChanges if this isn't the first time loadData set it
+    // or if the values actually changed from what's in the store
+    const storeData = homeSettings.pageHeroes[props.pageKey];
+    if (storeData) {
+        const isDifferent = JSON.stringify(newVal) !== JSON.stringify(storeData);
+        hasChanges.value = isDifferent;
+    }
 }, { deep: true });
 
 const handleFile = async (event) => {
