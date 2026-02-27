@@ -84,11 +84,26 @@ export const useMatchesStore = defineStore('matches', () => {
         localStorage.setItem('union_matches', JSON.stringify(matches.value));
     };
 
+    // Mapear campos del frontend a columnas de la BD
+    const mapToDbFields = (match) => {
+        const mapped = { ...match };
+        // La BD usa date_str y time_str, no date y time
+        if (mapped.date !== undefined) {
+            mapped.date_str = mapped.date;
+            delete mapped.date;
+        }
+        if (mapped.time !== undefined) {
+            mapped.time_str = mapped.time;
+            delete mapped.time;
+        }
+        return mapped;
+    };
+
     // CRUD Operations
     const addMatch = async (match) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('matches', 'POST', match);
+            const result = await apiService.request('matches', 'POST', mapToDbFields(match));
             if (result.status === 'success') {
                 await initMatches();
                 return true;
@@ -104,7 +119,7 @@ export const useMatchesStore = defineStore('matches', () => {
     const updateMatch = async (id, updatedMatch) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('matches', 'PUT', { ...updatedMatch, id });
+            const result = await apiService.request('matches', 'PUT', { ...mapToDbFields(updatedMatch), id });
             if (result.status === 'success') {
                 await initMatches();
                 return true;

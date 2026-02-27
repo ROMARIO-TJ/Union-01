@@ -11,10 +11,36 @@ const isModalOpen = ref(false);
 const isEditing = ref(false);
 const currentId = ref(null);
 const selectedFilterCategory = ref('Todos');
+const selectedFilterDate = ref('Todas');
+
+// Mapeo de fechas del calendario oficial DIFUTBOL
+const dateToFechaMap = {
+  '21 Feb': 'Fecha 1', '28 Feb': 'Fecha 2', '07 Mar': 'Fecha 3', '14 Mar': 'Fecha 4',
+  '21 Mar': 'Fecha 5', '28 Mar': 'Fecha 6', '11 Abr': 'Fecha 7', '18 Abr': 'Fecha 8',
+  '25 Abr': 'Fecha 9', '02 May': 'Fecha 10', '09 May': 'Fecha 11', '16 May': 'Fecha 12',
+  '23 May': 'Fecha 13', '30 May': 'Fecha 14', '06 Jun': 'Fecha 15', '13 Jun': 'Fecha 16',
+  '20 Jun': 'Fecha 17', '27 Jun': 'Fecha 18', '04 Jul': 'Fecha 19', '11 Jul': 'Fecha 20',
+  '18 Jul': 'Fecha 21', '25 Jul': 'Fecha 22'
+};
+
+const getFechaLabel = (date) => {
+  const label = dateToFechaMap[date];
+  return label ? `${label} - ${date}` : date;
+};
+
+const availableDates = computed(() => {
+  return [...new Set(matchesStore.matches.map(m => m.date))];
+});
 
 const filteredMatches = computed(() => {
-  if (selectedFilterCategory.value === 'Todos') return matchesStore.matches;
-  return matchesStore.matches.filter(m => m.category === selectedFilterCategory.value);
+  let result = matchesStore.matches;
+  if (selectedFilterCategory.value !== 'Todos') {
+    result = result.filter(m => m.category === selectedFilterCategory.value);
+  }
+  if (selectedFilterDate.value !== 'Todas') {
+    result = result.filter(m => m.date === selectedFilterDate.value);
+  }
+  return result;
 });
 
 const formData = ref({
@@ -132,22 +158,160 @@ const importSub15 = async () => {
   if (!confirm('¿Deseas importar el calendario Sub-15? Esto agregará los partidos a la lista.')) return;
 
   const schedule = [
-    // Fecha 1 (RESULTADOS CARGADOS)
-    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'INTER JUNIOR', date: '21 Feb', time: '10:00', stadium: 'Cancha Galo Celedon', homeScore: 0, awayScore: 2, status: 'finished' },
-    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: '"B"ACAD VALLEDUPAR FC', date: '21 Feb', time: '15:00', stadium: 'Cancha El Salto', homeScore: 5, awayScore: 1, status: 'finished' },
-    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'FUTURAS ESTRELLAS', date: '21 Feb', time: '15:15', stadium: 'Estadio Ascanio Viña', homeScore: 3, awayScore: 0, status: 'finished' },
-    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'ATLETAS DEL MAÑANA', date: '22 Feb', time: '16:30', stadium: 'Gustavo Calderon', homeScore: 0, awayScore: 3, status: 'finished' },
-    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'C.A LA GLORIA', date: '22 Feb', time: '13:45', stadium: 'Estadio Edinson Mejia', homeScore: 1, awayScore: 5, status: 'finished' },
-    { cat: 'Sub 15', home: 'DESCANSA', away: 'MANCHESTER VALLEDUPAR', date: '21 Feb', time: '00:00', stadium: '12 de Octubre', homeScore: 0, awayScore: 0, status: 'finished' },
-
-    // Fecha 2 (PRÓXIMOS)
-    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'DESCANSA', date: '28 Feb', time: '16:00', stadium: 'Estadio Agustin' },
-    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'ALIANZA FC "B"', date: '28 Feb', time: '10:00', stadium: 'Cancha 12 de Octubre' },
-    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'LOS EMBAJADORES DE EL BANCO', date: '28 Feb', time: '16:00', stadium: 'Bosconia' },
-    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'ATLETICO CESAR FC', date: '28 Feb', time: '16:00', stadium: 'La Gloria, Juan Bandera' },
-    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'ACADEMIA VALLENATA', date: '28 Feb', time: '16:00', stadium: 'Valledupar, Villamirian' },
-    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'UNION JAGUERA', date: '01 Mar', time: '16:00', stadium: 'Los Patios, 12 de Octubre' },
-    // ... rest of the dates
+    // Fecha 1 (RESULTADOS)
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'INTER JUNIOR', date: '21 Feb', time: '10:00', stadium: 'Valledupar, Estadio Armando Maestre', homeScore: 0, awayScore: 2, status: 'finished' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: '"B"ACAD VALLEDUPAR FC', date: '21 Feb', time: '15:00', stadium: 'El Banco, Los Embajadores', homeScore: 5, awayScore: 1, status: 'finished' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'ATLETAS DEL MAÑANA', date: '21 Feb', time: '16:30', stadium: 'Becerril, Municipal Becerril', homeScore: 0, awayScore: 3, status: 'finished' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'C.A LA GLORIA', date: '21 Feb', time: '13:45', stadium: 'Valledupar, Cancha Barrio Panama', homeScore: 1, awayScore: 5, status: 'finished' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'FUTURAS ESTRELLAS', date: '21 Feb', time: '15:15', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña', homeScore: 3, awayScore: 0, status: 'finished' },
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'MANCHESTER VALLEDUPAR', date: '21 Feb', time: '00:00', stadium: 'Los Patios, 12 de Octubre', homeScore: 0, awayScore: 0, status: 'finished' },
+    // Fecha 2
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'DESCANSA', date: '28 Feb', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'ALIANZA FC "B"', date: '28 Feb', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'LOS EMBAJADORES DE EL BANCO', date: '28 Feb', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'ATLETICO CESAR FC', date: '28 Feb', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'ACADEMIA VALLENATA', date: '28 Feb', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'UNION JAGUERA', date: '28 Feb', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    // Fecha 3
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: '"B"ACAD VALLEDUPAR FC', date: '07 Mar', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'ATLETAS DEL MAÑANA', date: '07 Mar', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'C.A LA GLORIA', date: '07 Mar', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'FUTURAS ESTRELLAS', date: '07 Mar', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'MANCHESTER VALLEDUPAR', date: '07 Mar', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'UNION JAGUERA', date: '07 Mar', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    // Fecha 4
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'DESCANSA', date: '14 Mar', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'INTER JUNIOR', date: '14 Mar', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'ALIANZA FC "B"', date: '14 Mar', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'LOS EMBAJADORES DE EL BANCO', date: '14 Mar', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'ATLETICO CESAR FC', date: '14 Mar', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'ACADEMIA VALLENATA', date: '14 Mar', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    // Fecha 5
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'ATLETAS DEL MAÑANA', date: '21 Mar', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'C.A LA GLORIA', date: '21 Mar', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'FUTURAS ESTRELLAS', date: '21 Mar', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'MANCHESTER VALLEDUPAR', date: '21 Mar', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'UNION JAGUERA', date: '21 Mar', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'ACADEMIA VALLENATA', date: '21 Mar', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    // Fecha 6
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'DESCANSA', date: '28 Mar', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: '"B"ACAD VALLEDUPAR FC', date: '28 Mar', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'INTER JUNIOR', date: '28 Mar', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'ALIANZA FC "B"', date: '28 Mar', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'LOS EMBAJADORES DE EL BANCO', date: '28 Mar', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'ATLETICO CESAR FC', date: '28 Mar', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    // Fecha 7
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'C.A LA GLORIA', date: '11 Abr', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'FUTURAS ESTRELLAS', date: '11 Abr', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'MANCHESTER VALLEDUPAR', date: '11 Abr', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'UNION JAGUERA', date: '11 Abr', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'ACADEMIA VALLENATA', date: '11 Abr', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'ATLETICO CESAR FC', date: '11 Abr', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    // Fecha 8
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'DESCANSA', date: '18 Abr', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'ATLETAS DEL MAÑANA', date: '18 Abr', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: '"B"ACAD VALLEDUPAR FC', date: '18 Abr', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'INTER JUNIOR', date: '18 Abr', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'ALIANZA FC "B"', date: '18 Abr', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'LOS EMBAJADORES DE EL BANCO', date: '18 Abr', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    // Fecha 9
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'FUTURAS ESTRELLAS', date: '25 Abr', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'MANCHESTER VALLEDUPAR', date: '25 Abr', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'UNION JAGUERA', date: '25 Abr', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'ACADEMIA VALLENATA', date: '25 Abr', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'ATLETICO CESAR FC', date: '25 Abr', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'LOS EMBAJADORES DE EL BANCO', date: '25 Abr', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    // Fecha 10
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'FUTURAS ESTRELLAS', date: '02 May', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'C.A LA GLORIA', date: '02 May', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'ATLETAS DEL MAÑANA', date: '02 May', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: '"B"ACAD VALLEDUPAR FC', date: '02 May', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'INTER JUNIOR', date: '02 May', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'ALIANZA FC "B"', date: '02 May', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    // Fecha 11
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'MANCHESTER VALLEDUPAR', date: '09 May', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'UNION JAGUERA', date: '09 May', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'ACADEMIA VALLENATA', date: '09 May', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'ATLETICO CESAR FC', date: '09 May', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'LOS EMBAJADORES DE EL BANCO', date: '09 May', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'DESCANSA', date: '09 May', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    // Fecha 12
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'ALIANZA FC "B"', date: '16 May', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'LOS EMBAJADORES DE EL BANCO', date: '16 May', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'ATLETICO CESAR FC', date: '16 May', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'ACADEMIA VALLENATA', date: '16 May', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'UNION JAGUERA', date: '16 May', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'DESCANSA', date: '16 May', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    // Fecha 13
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'INTER JUNIOR', date: '23 May', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: '"B"ACAD VALLEDUPAR FC', date: '23 May', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'ATLETAS DEL MAÑANA', date: '23 May', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'C.A LA GLORIA', date: '23 May', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'FUTURAS ESTRELLAS', date: '23 May', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'MANCHESTER VALLEDUPAR', date: '23 May', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    // Fecha 14
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'INTER JUNIOR', date: '30 May', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'ALIANZA FC "B"', date: '30 May', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'LOS EMBAJADORES DE EL BANCO', date: '30 May', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'ATLETICO CESAR FC', date: '30 May', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'ACADEMIA VALLENATA', date: '30 May', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'DESCANSA', date: '30 May', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    // Fecha 15
+    { cat: 'Sub 15', home: 'DESCANSA', away: '"B"ACAD VALLEDUPAR FC', date: '06 Jun', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'ATLETAS DEL MAÑANA', date: '06 Jun', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'C.A LA GLORIA', date: '06 Jun', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'FUTURAS ESTRELLAS', date: '06 Jun', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'MANCHESTER VALLEDUPAR', date: '06 Jun', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'UNION JAGUERA', date: '06 Jun', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    // Fecha 16
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: '"B"ACAD VALLEDUPAR FC', date: '13 Jun', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'INTER JUNIOR', date: '13 Jun', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'ALIANZA FC "B"', date: '13 Jun', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'LOS EMBAJADORES DE EL BANCO', date: '13 Jun', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'ATLETICO CESAR FC', date: '13 Jun', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'DESCANSA', date: '13 Jun', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    // Fecha 17
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'ATLETAS DEL MAÑANA', date: '20 Jun', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'C.A LA GLORIA', date: '20 Jun', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'FUTURAS ESTRELLAS', date: '20 Jun', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'MANCHESTER VALLEDUPAR', date: '20 Jun', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'UNION JAGUERA', date: '20 Jun', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'ACADEMIA VALLENATA', date: '20 Jun', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    // Fecha 18
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'ATLETAS DEL MAÑANA', date: '27 Jun', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: '"B"ACAD VALLEDUPAR FC', date: '27 Jun', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'INTER JUNIOR', date: '27 Jun', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'ALIANZA FC "B"', date: '27 Jun', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'LOS EMBAJADORES DE EL BANCO', date: '27 Jun', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'DESCANSA', date: '27 Jun', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    // Fecha 19
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'C.A LA GLORIA', date: '04 Jul', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'FUTURAS ESTRELLAS', date: '04 Jul', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'MANCHESTER VALLEDUPAR', date: '04 Jul', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'UNION JAGUERA', date: '04 Jul', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'ACADEMIA VALLENATA', date: '04 Jul', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'ATLETICO CESAR FC', date: '04 Jul', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    // Fecha 20
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'C.A LA GLORIA', date: '11 Jul', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'ATLETAS DEL MAÑANA', date: '11 Jul', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: '"B"ACAD VALLEDUPAR FC', date: '11 Jul', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'INTER JUNIOR', date: '11 Jul', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: 'ALIANZA FC "B"', date: '11 Jul', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'DESCANSA', date: '11 Jul', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    // Fecha 21
+    { cat: 'Sub 15', home: 'FUTURAS ESTRELLAS', away: 'DESCANSA', date: '18 Jul', time: '00:00', stadium: 'Valledupar, Villamirian' },
+    { cat: 'Sub 15', home: 'C.A LA GLORIA', away: 'MANCHESTER VALLEDUPAR', date: '18 Jul', time: '00:00', stadium: 'La Gloria, Juan Bandera Laguna' },
+    { cat: 'Sub 15', home: 'ATLETAS DEL MAÑANA', away: 'UNION JAGUERA', date: '18 Jul', time: '00:00', stadium: 'Bosconia, Estadio Municipal' },
+    { cat: 'Sub 15', home: '"B"ACAD VALLEDUPAR FC', away: 'ACADEMIA VALLENATA', date: '18 Jul', time: '00:00', stadium: 'Valledupar, Cancha 12 de Octubre' },
+    { cat: 'Sub 15', home: 'INTER JUNIOR', away: 'ATLETICO CESAR FC', date: '18 Jul', time: '00:00', stadium: 'Mocoa, Estadio Agustin Agustin' },
+    { cat: 'Sub 15', home: 'ALIANZA FC "B"', away: 'LOS EMBAJADORES DE EL BANCO', date: '18 Jul', time: '00:00', stadium: 'Valledupar, Estadio Armando Maestre' },
+    // Fecha 22
+    { cat: 'Sub 15', home: 'MANCHESTER VALLEDUPAR', away: 'FUTURAS ESTRELLAS', date: '25 Jul', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
+    { cat: 'Sub 15', home: 'UNION JAGUERA', away: 'C.A LA GLORIA', date: '25 Jul', time: '00:00', stadium: 'La Jagua de Ibirico, Estadio Ascanio Viña' },
+    { cat: 'Sub 15', home: 'ACADEMIA VALLENATA', away: 'ATLETAS DEL MAÑANA', date: '25 Jul', time: '00:00', stadium: 'Valledupar, Cancha Barrio Panama' },
+    { cat: 'Sub 15', home: 'ATLETICO CESAR FC', away: '"B"ACAD VALLEDUPAR FC', date: '25 Jul', time: '00:00', stadium: 'Becerril, Municipal Becerril' },
+    { cat: 'Sub 15', home: 'LOS EMBAJADORES DE EL BANCO', away: 'INTER JUNIOR', date: '25 Jul', time: '00:00', stadium: 'El Banco, Los Embajadores' },
+    { cat: 'Sub 15', home: 'DESCANSA', away: 'ALIANZA FC "B"', date: '25 Jul', time: '00:00', stadium: 'Los Patios, 12 de Octubre' },
   ];
 
   // Eliminar el mensaje genérico y poner un texto de progreso
@@ -213,6 +377,14 @@ const importSub15 = async () => {
           {{ cat }}
         </button>
       </div>
+      <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+        <label style="font-weight: 600; font-size: 0.85rem; color: #666;">Filtrar por jornada:</label>
+        <select v-model="selectedFilterDate"
+          style="padding: 0.4rem 0.8rem; border: 2px solid #ddd; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+          <option value="Todas">Todas las fechas</option>
+          <option v-for="date in availableDates" :key="date" :value="date">{{ getFechaLabel(date) }}</option>
+        </select>
+      </div>
     </div>
 
     <div class="admin-table-wrapper">
@@ -237,7 +409,7 @@ const importSub15 = async () => {
                     style="width: 24px; height: 24px; object-fit: contain;">
                   <strong>{{ item.homeTeam }}</strong>
                   <span v-if="item.status === 'finished'" style="margin-left: auto; font-weight: 800;">{{ item.homeScore
-                    }}</span>
+                  }}</span>
                 </div>
               </td>
               <td>

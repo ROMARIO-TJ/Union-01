@@ -71,7 +71,8 @@
                     <div class="date-filter" v-if="upcomingDates.length > 0">
                         <select v-model="selectedUpcomingDate" class="date-select">
                             <option value="Todas">Todas las fechas</option>
-                            <option v-for="date in upcomingDates" :key="date" :value="date">{{ date }}</option>
+                            <option v-for="date in upcomingDates" :key="date" :value="date">{{ getFechaLabel(date) }}
+                            </option>
                         </select>
                     </div>
                 </div>
@@ -125,7 +126,8 @@
                     <div class="date-filter" v-if="finishedDates.length > 0">
                         <select v-model="selectedFinishedDate" class="date-select">
                             <option value="Todas">Todas las fechas</option>
-                            <option v-for="date in finishedDates" :key="date" :value="date">{{ date }}</option>
+                            <option v-for="date in finishedDates" :key="date" :value="date">{{ getFechaLabel(date) }}
+                            </option>
                         </select>
                     </div>
                 </div>
@@ -245,6 +247,21 @@ const getTeamLogo = (teamName) => {
 const selectedUpcomingDate = ref('Todas');
 const selectedFinishedDate = ref('Todas');
 
+// Mapeo de fechas del calendario oficial DIFUTBOL a "Fecha N"
+const dateToFechaMap = {
+    '21 Feb': 'Fecha 1', '28 Feb': 'Fecha 2', '07 Mar': 'Fecha 3', '14 Mar': 'Fecha 4',
+    '21 Mar': 'Fecha 5', '28 Mar': 'Fecha 6', '11 Abr': 'Fecha 7', '18 Abr': 'Fecha 8',
+    '25 Abr': 'Fecha 9', '02 May': 'Fecha 10', '09 May': 'Fecha 11', '16 May': 'Fecha 12',
+    '23 May': 'Fecha 13', '30 May': 'Fecha 14', '06 Jun': 'Fecha 15', '13 Jun': 'Fecha 16',
+    '20 Jun': 'Fecha 17', '27 Jun': 'Fecha 18', '04 Jul': 'Fecha 19', '11 Jul': 'Fecha 20',
+    '18 Jul': 'Fecha 21', '25 Jul': 'Fecha 22'
+};
+
+const getFechaLabel = (date) => {
+    const label = dateToFechaMap[date];
+    return label ? `${label} - ${date}` : date;
+};
+
 const upcomingDates = computed(() => {
     return [...new Set(filteredUpcoming.value.map(m => m.date))];
 });
@@ -274,15 +291,17 @@ watch(selectedCategory, () => {
     applyAutoSelection();
 });
 
-// Auto-seleccionar al cargar los datos por primera vez (cuando matches pasa de 0 a tener elementos)
-watch(() => matchesStore.matches, (newMatches, oldMatches) => {
-    if (newMatches.length > 0 && (!oldMatches || oldMatches.length === 0)) {
-        // Usamos un pequeño delay para asegurar que los computed properties (upcomingDates, etc) se hayan actualizado
-        setTimeout(() => {
-            applyAutoSelection();
-        }, 50);
-    }
-}, { deep: true, immediate: true });
+// Auto-seleccionar cuando los datos se cargan (desde servidor o localStorage)
+watch(() => matchesStore.matches.length, () => {
+    applyAutoSelection();
+}, { immediate: true });
+
+// Respaldo: al montar la página, aplicar selección tras un breve delay
+onMounted(() => {
+    setTimeout(() => {
+        applyAutoSelection();
+    }, 300);
+});
 
 const displayUpcoming = computed(() => {
     if (selectedUpcomingDate.value === 'Todas') return filteredUpcoming.value;
