@@ -172,12 +172,30 @@
                             </div>
                             <div class="info-box">
                                 <span class="label">Documento ({{ selectedPlayer.documentType || 'ID' }})</span>
+                                <div v-if="!isEditingDni" class="value-with-action">
+                                    <span class="value">{{ selectedPlayer.dni || 'Sin registrar' }}</span>
+                                    <button @click="startEditDni" class="btn-mini-edit" title="Editar DNI">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                </div>
+                                <div v-else class="value-with-action">
+                                    <input v-model="tempDni" type="text" class="admin-input-mini"
+                                        placeholder="Número de documento">
+                                    <div class="mini-actions">
+                                        <button @click="saveDni" class="btn-mini-save"
+                                            :disabled="playersStore.isLoading">
+                                            <i class="fa-solid fa-check"></i>
+                                        </button>
+                                        <button @click="isEditingDni = false" class="btn-mini-cancel">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="doc-preview-small" v-if="selectedPlayer.dniImage">
                                     <a :href="selectedPlayer.dniImage" target="_blank" class="view-doc-link">
                                         <i class="fa-solid fa-file-invoice"></i> Ver Identificación
                                     </a>
                                 </div>
-                                <span v-else class="value">No cargado</span>
                             </div>
                             <div class="info-box">
                                 <span class="label">Fecha Nac.</span>
@@ -215,9 +233,11 @@
                                     </button>
                                 </div>
                                 <div v-else class="value-with-action">
-                                    <input v-model="tempEmail" type="email" class="admin-input-mini" placeholder="correo@ejemplo.com">
+                                    <input v-model="tempEmail" type="email" class="admin-input-mini"
+                                        placeholder="correo@ejemplo.com">
                                     <div class="mini-actions">
-                                        <button @click="saveEmail" class="btn-mini-save" :disabled="playersStore.isLoading">
+                                        <button @click="saveEmail" class="btn-mini-save"
+                                            :disabled="playersStore.isLoading">
                                             <i class="fa-solid fa-check"></i>
                                         </button>
                                         <button @click="isEditingEmail = false" class="btn-mini-cancel">
@@ -225,7 +245,8 @@
                                         </button>
                                     </div>
                                 </div>
-                                <small v-if="!selectedPlayer.email" style="color: #e67e22; font-size: 0.7rem; margin-top: 2px;">
+                                <small v-if="!selectedPlayer.email"
+                                    style="color: #e67e22; font-size: 0.7rem; margin-top: 2px;">
                                     * Vincular email para habilitar Portal de Padres
                                 </small>
                             </div>
@@ -372,11 +393,14 @@ const filteredPlayers = computed(() => {
 
 
 const isEditingEmail = ref(false);
+const isEditingDni = ref(false);
 const tempEmail = ref('');
+const tempDni = ref('');
 
 const viewDetails = (player) => {
     selectedPlayer.value = { ...player };
     isEditingEmail.value = false;
+    isEditingDni.value = false;
     isModalOpen.value = true;
 };
 
@@ -384,6 +408,7 @@ const closeModal = () => {
     isModalOpen.value = false;
     selectedPlayer.value = null;
     isEditingEmail.value = false;
+    isEditingDni.value = false;
 };
 
 const startEditEmail = () => {
@@ -391,12 +416,17 @@ const startEditEmail = () => {
     isEditingEmail.value = true;
 };
 
+const startEditDni = () => {
+    tempDni.value = selectedPlayer.value.dni || '';
+    isEditingDni.value = true;
+};
+
 const saveEmail = async () => {
     if (!tempEmail.value || !tempEmail.value.includes('@')) {
         alert('Por favor ingressa un correo válido');
         return;
     }
-    
+
     try {
         const success = await playersStore.updateParentEmail(selectedPlayer.value.id, tempEmail.value);
         if (success) {
@@ -405,6 +435,23 @@ const saveEmail = async () => {
         }
     } catch (e) {
         alert('Error al actualizar: ' + e.message);
+    }
+};
+
+const saveDni = async () => {
+    if (!tempDni.value) {
+        alert('Por favor ingresa un número de documento');
+        return;
+    }
+
+    try {
+        const success = await playersStore.updatePlayerDni(selectedPlayer.value.id, tempDni.value);
+        if (success) {
+            selectedPlayer.value.dni = tempDni.value;
+            isEditingDni.value = false;
+        }
+    } catch (e) {
+        alert('Error al actualizar DNI: ' + e.message);
     }
 };
 
@@ -838,6 +885,7 @@ const deletePlayer = async (id) => {
         width: 100%;
     }
 }
+
 /* MINI EDIT STYLES */
 .value-with-action {
     display: flex;
@@ -846,7 +894,9 @@ const deletePlayer = async (id) => {
     margin-top: 0.2rem;
 }
 
-.btn-mini-edit, .btn-mini-save, .btn-mini-cancel {
+.btn-mini-edit,
+.btn-mini-save,
+.btn-mini-cancel {
     border: none;
     background: none;
     cursor: pointer;
@@ -855,11 +905,23 @@ const deletePlayer = async (id) => {
     transition: transform 0.2s;
 }
 
-.btn-mini-edit { color: #3498db; }
-.btn-mini-save { color: #1fa774; font-size: 1rem; }
-.btn-mini-cancel { color: #e74c3c; font-size: 1rem; }
+.btn-mini-edit {
+    color: #3498db;
+}
 
-.btn-mini-edit:hover { transform: scale(1.1); }
+.btn-mini-save {
+    color: #1fa774;
+    font-size: 1rem;
+}
+
+.btn-mini-cancel {
+    color: #e74c3c;
+    font-size: 1rem;
+}
+
+.btn-mini-edit:hover {
+    transform: scale(1.1);
+}
 
 .admin-input-mini {
     padding: 0.4rem;

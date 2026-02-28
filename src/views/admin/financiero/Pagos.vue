@@ -1,10 +1,12 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { usePlayersStore } from '../../../store/playersStore';
 import { usePaymentsStore } from '../../../store/paymentsStore';
+import { useCategoryStore } from '../../../store/categoryStore';
 
 const playersStore = usePlayersStore();
 const paymentsStore = usePaymentsStore();
+const categoryStore = useCategoryStore();
 const searchQuery = ref('');
 const filterCategory = ref('Todas');
 
@@ -12,6 +14,7 @@ const filterCategory = ref('Todas');
 const successMessage = ref('');
 const errorMessage = ref('');
 const isProcessing = ref(false);
+const isLoading = ref(false);
 
 // Modal states
 const showHistoryModal = ref(false);
@@ -28,10 +31,23 @@ const paymentForm = ref({
     fecha: new Date().toISOString().split('T')[0]
 });
 
-onMounted(async () => {
-    if (playersStore.players.length === 0) {
-        await playersStore.initPlayers();
+// Automatizar valores por defecto
+watch(() => paymentForm.value.tipo, (newTipo) => {
+    if (newTipo === 'Mensualidad') {
+        paymentForm.value.valor = 50000;
+    } else if (newTipo === 'Suscripción Club') {
+        paymentForm.value.valor = 20000;
     }
+});
+
+onMounted(async () => {
+    isLoading.value = true;
+    await Promise.all([
+        playersStore.initPlayers(),
+        categoryStore.fetchCategories(),
+        paymentsStore.fetchSubscriptions()
+    ]);
+    isLoading.value = false;
 });
 
 // Obtener categorías únicas presentes en la lista de jugadores
@@ -51,30 +67,61 @@ const payments = computed(() => {
             const categoryMatch = filterCategory.value === 'Todas' || p.category === filterCategory.value;
             return nameMatch && categoryMatch;
         })
-        .map(p => ({
-            id: p.id,
-            player: p.name || p.fullName,
-            category: p.category || 'Sin asignar',
-            amount: '$50.000',
-            date: p.registrationDate || 'N/A',
-            status: p.paymentStatus || 'Pendiente'
-        }));
+        .map(p => {
+            const isComp = isCompetitive(p.category);
+            const fee = isComp ? 20000 : 50000;
+            return {
+                id: p.id,
+                player: p.name || p.fullName,
+                category: p.category || 'Sin asignar',
+                amountValue: fee,
+                amount: `$${fee.toLocaleString()}`,
+                date: p.registrationDate || 'N/A',
+                status: p.paymentStatus || 'Pendiente'
+            };
+        });
 });
 
+// Lógica de Suscripciones unificada
+const isCompetitive = (categoryName) => {
+    if (!categoryName) return false;
+    const n = categoryName.toLowerCase();
+    if (n.includes('escuela')) return false;
+    if (n.includes('primera')) return true;
+    const sub = n.match(/sub[\s-]*(\d+)/);
+    if (sub && parseInt(sub[1]) >= 13) return true;
+    return false;
+};
+
+
+
 const stats = computed(() => {
-    const paid = payments.value.filter(p => p.status === 'Al Día').length;
+    const paidList = payments.value.filter(p => p.status === 'Al Día');
     const total = payments.value.length;
+    // Ingreso previsto: lo que se debería recaudar basándose en las categorías de los jugadores
+    const expected = payments.value.reduce((acc, p) => acc + p.amountValue, 0);
+    // Recaudado: suma de los montos de los que están "Al Día"
+    const collected = paidList.reduce((acc, p) => acc + p.amountValue, 0);
+
     return {
-        paid,
-        pending: total - paid,
-        totalAmount: paid * 50000
+        paid: paidList.length,
+        pending: total - paidList.length,
+        totalAmount: expected,
+        collected: collected
     };
 });
 
 const updateStatus = async (id, newStatus) => {
     // Si marcamos como Al Día, abrimos el formulario de registro detallado
     if (newStatus === 'Al Día') {
-        selectedPlayer.value = payments.value.find(p => p.id === id);
+        const player = payments.value.find(p => p.id === id);
+        selectedPlayer.value = player;
+
+        // Detectar tipo y valor base automáticamente según categoría
+        const isComp = isCompetitive(player.category);
+        paymentForm.value.tipo = isComp ? 'Suscripción Club' : 'Mensualidad';
+        paymentForm.value.valor = isComp ? 20000 : 50000;
+
         showRegisterModal.value = true;
         return;
     }
@@ -107,11 +154,17 @@ const confirmPaymentRegistration = async () => {
 
         const ok = await paymentsStore.registerPayment(payload);
         if (ok) {
-            // Actualizar también el estado general del jugador
+            // Always update the player's general status to 'Al Día' after a successful payment registration
             await playersStore.updatePaymentStatus(selectedPlayer.value.id, 'Al Día');
-            successMessage.value = '✅ Pago registrado y estado actualizado';
+
+            successMessage.value = '✅ Pago registrado con éxito';
             showRegisterModal.value = false;
-            await playersStore.initPlayers();
+
+            // Recargar datos
+            await Promise.all([
+                playersStore.initPlayers(),
+                paymentsStore.fetchSubscriptions()
+            ]);
         }
     } catch (e) {
         errorMessage.value = 'Error al registrar el pago';
@@ -270,70 +323,60 @@ const getStatusColor = (status) => {
 
 <template>
     <div class="admin-dashboard">
-        <div class="admin-toolbar" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <div class="toolbar-left" style="flex: 1; min-width: 200px;">
-                <h2>Gestión de Pagos</h2>
-                <span class="badge"
-                    style="background:var(--admin-accent); color:white; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem;">
-                    {{ payments.length }} Futbolistas
-                </span>
+        <!-- Encabezado con Tabs -->
+        <div class="admin-toolbar" style="margin-bottom: 1.5rem;">
+            <div class="toolbar-left">
+                <h1 style="font-size: 1.5rem; color: var(--admin-sidebar); font-weight: 800; margin: 0;">Gestión
+                    Financiera Unificada</h1>
+                <p style="margin: 0; font-size: 0.9rem; color: #666;">Control total de mensualidades y suscripciones</p>
             </div>
-
-            <div class="toolbar-right"
-                style="display: flex; gap: 1rem; flex: 2; justify-content: flex-end; align-items: center; min-width: 300px;">
-                <!-- Filtro de Categoría -->
-                <div class="admin-filter-wrapper" style="position: relative; min-width: 180px;">
-                    <select v-model="filterCategory" class="admin-search-input"
-                        style="width: 100%; height: 40px; padding: 0 1rem; border-radius: 8px; background: white;">
-                        <option v-for="cat in availableCategories" :key="cat" :value="cat">
-                            {{ cat === 'Todas' ? 'Todas las Categorías' : cat }}
-                        </option>
-                    </select>
-                </div>
-
-                <!-- Buscador -->
-                <div class="admin-search-wrapper" style="position: relative; min-width: 250px;">
-                    <i class="fa-solid fa-magnifying-glass search-icon"
-                        style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #aaa;"></i>
-                    <input v-model="searchQuery" type="text" placeholder="Buscar jugador..." class="admin-search-input"
-                        style="width:100%; padding-left: 2.5rem; border-radius: 8px; border: 1px solid #ddd; height: 40px;">
-                </div>
+            <div class="toolbar-right" style="display: flex; gap: 10px; align-items: center;">
+                <input v-model="searchQuery" type="text" placeholder="Buscar jugador..." class="admin-search-input"
+                    style="height: 40px; padding: 0 15px; border-radius: 8px; border: 1px solid #ddd; min-width: 250px;">
+                <select v-model="filterCategory" class="admin-search-input"
+                    style="height: 40px; border-radius: 8px; border:1px solid #ddd; background: white;">
+                    <option v-for="cat in availableCategories" :key="cat" :value="cat">{{ cat }}</option>
+                </select>
             </div>
         </div>
 
-        <!-- Barras de Notificación -->
+        <!-- Alertas de Feedback -->
         <div v-if="successMessage" class="admin-alert success"
-            style="margin-bottom: 1rem; padding: 1rem; border-radius: 8px; background: #e6f3ef; color: #1fa774; border-left: 5px solid #1fa774; display: flex; align-items: center; gap: 0.5rem;">
+            style="background:#e8f5e9; color:#2e7d32; padding:12px; border-radius:8px; margin-bottom:15px; border-left:5px solid #2e7d32; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-circle-check"></i> {{ successMessage }}
         </div>
         <div v-if="errorMessage" class="admin-alert error"
-            style="margin-bottom: 1rem; padding: 1rem; border-radius: 8px; background: #fdf2f2; color: #e74c3c; border-left: 5px solid #e74c3c; display: flex; align-items: center; gap: 0.5rem;">
+            style="background:#fdeaea; color:#c62828; padding:12px; border-radius:8px; margin-bottom:15px; border-left:5px solid #c62828; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-circle-xmark"></i> {{ errorMessage }}
         </div>
 
-        <div class="admin-stats-grid">
+        <div class="admin-stats-grid"
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
             <div class="stat-card">
-                <div class="stat-icon news">
-                    <i class="fa-solid fa-dollar-sign"></i>
-                </div>
+                <div class="stat-icon news"><i class="fa-solid fa-money-bills"></i></div>
                 <div class="stat-info">
-                    <h3>Ingresos Previstos</h3>
+                    <h3>Ingreso Previsto</h3>
                     <div class="stat-value">${{ stats.totalAmount.toLocaleString() }}</div>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon sponsors">
-                    <i class="fa-solid fa-clock"></i>
+                <div class="stat-icon sponsors" style="background: rgba(46, 204, 113, 0.1); color: #27ae60;">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
                 </div>
+                <div class="stat-info">
+                    <h3>Recaudado Real</h3>
+                    <div class="stat-value" style="color: #27ae60;">${{ stats.collected.toLocaleString() }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon sponsors"><i class="fa-solid fa-clock"></i></div>
                 <div class="stat-info">
                     <h3>Pendientes</h3>
                     <div class="stat-value">{{ stats.pending }}</div>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon matches">
-                    <i class="fa-solid fa-check-double"></i>
-                </div>
+                <div class="stat-icon matches"><i class="fa-solid fa-check-double"></i></div>
                 <div class="stat-info">
                     <h3>Al Día</h3>
                     <div class="stat-value">{{ stats.paid }}</div>
@@ -360,7 +403,8 @@ const getStatusColor = (status) => {
                     <tbody>
                         <tr v-for="payment in payments" :key="payment.id">
                             <td><strong>{{ payment.player }}</strong></td>
-                            <td><span class="badge" style="background:#eee; color:#666;">{{ payment.category }}</span>
+                            <td><span class="badge" style="background:#eee; color:#666;">{{ payment.category
+                            }}</span>
                             </td>
                             <td>{{ payment.amount }}</td>
                             <td>
@@ -395,7 +439,8 @@ const getStatusColor = (status) => {
                             </td>
                         </tr>
                         <tr v-if="payments.length === 0">
-                            <td colspan="5" style="text-align: center; padding: 2rem; color: #888;">No se encontraron
+                            <td colspan="5" style="text-align: center; padding: 2rem; color: #888;">No se
+                                encontraron
                                 registros activos.</td>
                         </tr>
                     </tbody>
@@ -416,6 +461,7 @@ const getStatusColor = (status) => {
                         <select v-model="paymentForm.tipo" class="admin-search-input" style="width: 100%;">
                             <option value="Mensualidad">Mensualidad</option>
                             <option value="Inscripción">Inscripción</option>
+                            <option value="Suscripción Club">Suscripción Club ($20k)</option>
                             <option value="Uniforme">Uniforme</option>
                             <option value="Otro">Otro</option>
                         </select>
@@ -425,8 +471,9 @@ const getStatusColor = (status) => {
                             <label>Mes Correspondiente</label>
                             <select v-model="paymentForm.mes" class="admin-search-input" style="width: 100%;">
                                 <option v-for="m in 12" :key="m" :value="m">{{
-                                    ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre','Diciembre'][m-1]
-                                    }}</option>
+                                    ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
+                                        'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][m - 1]
+                                }}</option>
                             </select>
                         </div>
                         <div class="admin-form-group">
@@ -486,15 +533,17 @@ const getStatusColor = (status) => {
                                 <tr v-for="h in playerHistory" :key="h.id">
                                     <td>{{ h.fecha }}</td>
                                     <td>{{
-                                        ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago','Sep','Oct','Nov','Dic'][h.mes
+                                        ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul',
+                                            'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][h.mes
                                         - 1] }}</td>
                                     <td><span class="badge" style="background:#f0f7f4; color:#1fa774;">{{ h.tipo
-                                            }}</span></td>
+                                    }}</span></td>
                                     <td><strong>${{ Number(h.valor).toLocaleString() }}</strong></td>
                                     <td><small>{{ h.metodo }}</small></td>
                                 </tr>
                                 <tr v-if="playerHistory.length === 0">
-                                    <td colspan="5" style="text-align: center; padding: 2rem; color: #888;">No hay pagos
+                                    <td colspan="5" style="text-align: center; padding: 2rem; color: #888;">No hay
+                                        pagos
                                         registrados anteriormente.</td>
                                 </tr>
                             </tbody>
@@ -511,4 +560,35 @@ const getStatusColor = (status) => {
 
 <style scoped>
 @import "../../../assets/css/admin/admin.css";
+
+.admin-tabs button {
+    padding: 1rem 1.5rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-weight: 700;
+    color: #888;
+    transition: all 0.2s;
+}
+
+.tab-active {
+    color: var(--admin-accent) !important;
+    border-bottom-color: var(--admin-accent) !important;
+}
+
+.tab-inactive:hover {
+    color: #555;
+    background: #f9f9f9;
+}
+
+.text-danger {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.text-success {
+    color: #27ae60;
+    font-weight: bold;
+}
 </style>

@@ -12,6 +12,16 @@ const showHistoryModal = ref(false);
 const selectedChild = ref(null);
 const childHistory = ref([]);
 
+const isCompetitive = (categoryName) => {
+    if (!categoryName) return false;
+    const n = categoryName.toLowerCase();
+    if (n.includes('escuela')) return false;
+    if (n.includes('primera')) return true;
+    const sub = n.match(/sub[\s-]*(\d+)/);
+    if (sub && parseInt(sub[1]) >= 13) return true;
+    return false;
+};
+
 onMounted(async () => {
     if (authStore.parentUser?.email) {
         await playersStore.initPlayers();
@@ -27,17 +37,22 @@ const openHistory = async (child) => {
 const myChildren = computed(() => {
     const email = authStore.parentUser?.email?.toLowerCase();
     if (!email) return [];
-    
+
     return playersStore.players
         .filter(p => (p.parentEmail || '').toLowerCase() === email)
-        .map(p => ({
-            id: p.id,
-            name: p.name || p.fullName,
-            category: p.category || 'Sin asignar',
-            status: p.paymentStatus || 'Pendiente',
-            amount: '$50.000',
-            date: p.registrationDate || 'N/A'
-        }));
+        .map(p => {
+            const isComp = isCompetitive(p.category);
+            const fee = isComp ? 20000 : 50000;
+            return {
+                id: p.id,
+                name: p.name || p.fullName,
+                category: p.category || 'Sin asignar',
+                status: p.paymentStatus || 'Pendiente',
+                amountValue: fee,
+                amount: `$${fee.toLocaleString()}`,
+                date: p.registrationDate || 'N/A'
+            };
+        });
 });
 
 const getStatusColor = (status) => {
@@ -52,10 +67,10 @@ const exportReceipt = (payment) => {
         alert('Solo se pueden generar recibos para pagos con estado "Al Día".');
         return;
     }
-    
+
     const logoUrl = '/src/assets/img/logosinfondo.png';
     const printWindow = window.open('', '_blank', 'width=800,height=800');
-    
+
     const receiptHtml = `
         <html>
         <head>
@@ -155,13 +170,14 @@ const exportReceipt = (payment) => {
                     <tbody>
                         <tr v-for="child in myChildren" :key="child.id">
                             <td><strong>{{ child.name }}</strong></td>
-                            <td><span class="badge" style="background:#eee; color:#666;">{{ child.category }}</span></td>
+                            <td><span class="badge" style="background:#eee; color:#666;">{{ child.category }}</span>
+                            </td>
                             <td>{{ child.amount }}</td>
                             <td>
-                                <span :style="{ 
-                                    padding: '6px 12px', 
-                                    borderRadius: '20px', 
-                                    fontSize: '0.8rem', 
+                                <span :style="{
+                                    padding: '6px 12px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.8rem',
                                     fontWeight: '700',
                                     backgroundColor: getStatusColor(child.status).bg,
                                     color: getStatusColor(child.status).text
@@ -171,21 +187,14 @@ const exportReceipt = (payment) => {
                             </td>
                             <td>
                                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                    <button 
-                                        @click="openHistory(child)" 
-                                        class="btn-action view" 
-                                        title="Historial de Pagos" 
-                                        style="background: #f0f4f8; color: #2c3e50; border-radius: 6px; width: auto; padding: 0 10px; height: 32px;"
-                                    >
+                                    <button @click="openHistory(child)" class="btn-action view"
+                                        title="Historial de Pagos"
+                                        style="background: #f0f4f8; color: #2c3e50; border-radius: 6px; width: auto; padding: 0 10px; height: 32px;">
                                         <i class="fa-solid fa-clock-rotate-left"></i> Historial
                                     </button>
-                                    <button 
-                                        v-if="child.status === 'Al Día'"
-                                        @click="exportReceipt(child)" 
-                                        class="btn-action edit" 
-                                        title="Descargar Recibo" 
-                                        style="background: #e6f3ef; color: #1fa774; width: auto; padding: 0 15px; height: 32px; font-size: 0.8rem;"
-                                    >
+                                    <button v-if="child.status === 'Al Día'" @click="exportReceipt(child)"
+                                        class="btn-action edit" title="Descargar Recibo"
+                                        style="background: #e6f3ef; color: #1fa774; width: auto; padding: 0 15px; height: 32px; font-size: 0.8rem;">
                                         <i class="fa-solid fa-file-pdf"></i> Ver Recibo
                                     </button>
                                 </div>
@@ -193,7 +202,8 @@ const exportReceipt = (payment) => {
                         </tr>
                         <tr v-if="myChildren.length === 0">
                             <td colspan="5" style="text-align: center; padding: 3rem; color: #888;">
-                                <i class="fa-solid fa-user-slash" style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
+                                <i class="fa-solid fa-user-slash"
+                                    style="font-size: 2rem; display: block; margin-bottom: 1rem;"></i>
                                 No hay hijos vinculados a este correo electrónico.<br>
                                 <small>Contacta al club para vincular tus registros antiguos.</small>
                             </td>
@@ -205,14 +215,15 @@ const exportReceipt = (payment) => {
 
         <!-- Mobile Cards Grid -->
         <div class="admin-cards-grid" style="margin-top: 1.5rem;">
-            <div v-for="child in myChildren" :key="'card-'+child.id" class="admin-card-item">
+            <div v-for="child in myChildren" :key="'card-' + child.id" class="admin-card-item">
                 <div class="admin-card-item__header">
                     <div class="stat-icon players" style="width: 40px; height: 40px; font-size: 1rem;">
                         <i class="fa-solid fa-child"></i>
                     </div>
                     <div>
                         <h4 style="font-weight: 800; font-size: 1.1rem;">{{ child.name }}</h4>
-                        <span class="badge" style="background:#eee; color:#666; font-size: 0.7rem;">{{ child.category }}</span>
+                        <span class="badge" style="background:#eee; color:#666; font-size: 0.7rem;">{{ child.category
+                            }}</span>
                     </div>
                 </div>
                 <div class="admin-card-item__body">
@@ -222,14 +233,17 @@ const exportReceipt = (payment) => {
                     </div>
                     <div class="admin-card-item__row">
                         <span class="admin-card-item__label">Estado:</span>
-                        <span :style="{ color: getStatusColor(child.status).text, fontWeight: '700' }">{{ child.status }}</span>
+                        <span :style="{ color: getStatusColor(child.status).text, fontWeight: '700' }">{{ child.status
+                            }}</span>
                     </div>
                 </div>
                 <div class="admin-card-item__actions">
-                    <button @click="openHistory(child)" class="btn-admin secondary" style="flex: 1; padding: 0.6rem; font-size: 0.8rem;">
+                    <button @click="openHistory(child)" class="btn-admin secondary"
+                        style="flex: 1; padding: 0.6rem; font-size: 0.8rem;">
                         <i class="fa-solid fa-clock-rotate-left"></i> Historial
                     </button>
-                    <button v-if="child.status === 'Al Día'" @click="exportReceipt(child)" class="btn-admin primary" style="flex: 1; padding: 0.6rem; font-size: 0.8rem;">
+                    <button v-if="child.status === 'Al Día'" @click="exportReceipt(child)" class="btn-admin primary"
+                        style="flex: 1; padding: 0.6rem; font-size: 0.8rem;">
                         <i class="fa-solid fa-file-pdf"></i> Ver Recibo
                     </button>
                 </div>
@@ -260,12 +274,15 @@ const exportReceipt = (payment) => {
                             <tbody>
                                 <tr v-for="h in childHistory" :key="h.id">
                                     <td>{{ h.fecha }}</td>
-                                    <td>{{ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][h.mes - 1] }}</td>
+                                    <td>{{
+                                        ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre','Noviembre','Diciembre'][h.mes
+                                        - 1] }}</td>
                                     <td>{{ h.tipo }}</td>
                                     <td><strong>${{ Number(h.valor).toLocaleString() }}</strong></td>
                                 </tr>
                                 <tr v-if="childHistory.length === 0">
-                                    <td colspan="4" style="text-align: center; padding: 2rem; color: #888;">No se encontraron registros de pago.</td>
+                                    <td colspan="4" style="text-align: center; padding: 2rem; color: #888;">No se
+                                        encontraron registros de pago.</td>
                                 </tr>
                             </tbody>
                         </table>

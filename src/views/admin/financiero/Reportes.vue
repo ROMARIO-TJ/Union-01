@@ -35,6 +35,16 @@ onMounted(async () => {
   }
 });
 
+const isCompetitive = (categoryName) => {
+  if (!categoryName) return false;
+  const n = categoryName.toLowerCase();
+  if (n.includes('escuela')) return false;
+  if (n.includes('primera')) return true;
+  const sub = n.match(/sub[\s-]*(\d+)/);
+  if (sub && parseInt(sub[1]) >= 13) return true;
+  return false;
+};
+
 // Procesar datos para gráficas basados en datos REALES
 const barData = computed(() => {
   const categoriesMap = {};
@@ -42,7 +52,8 @@ const barData = computed(() => {
     const cat = p.category || 'Sin asignar';
     if (!categoriesMap[cat]) categoriesMap[cat] = 0;
     if (p.paymentStatus === 'Al Día') {
-      categoriesMap[cat] += 50000;
+      const amount = isCompetitive(cat) ? 20000 : 50000;
+      categoriesMap[cat] += amount;
     }
   });
 
@@ -81,18 +92,22 @@ const lineData = ref({
     borderColor: '#3498db',
     backgroundColor: 'rgba(52, 152, 219, 0.1)',
     fill: true,
-    data: [1200000, 1500000, 1800000, 1600000, 1900000, 2100000]
+    data: [420000, 550000, 880000, 660000, 990000, 1100000]
   }]
 });
 
 const stats = computed(() => {
-  const paid = playersStore.players.filter(p => p.paymentStatus === 'Al Día').length;
+  const paidPlayers = playersStore.players.filter(p => p.paymentStatus === 'Al Día');
   const total = playersStore.players.length;
-  const totalRecaudado = paid * 50000;
+
+  const totalRecaudado = paidPlayers.reduce((acc, p) => {
+    const amount = isCompetitive(p.category) ? 20000 : 50000;
+    return acc + amount;
+  }, 0);
 
   return {
     totalRecaudado,
-    porcentajeCerrado: total > 0 ? Math.round((paid / total) * 100) : 0
+    porcentajeCerrado: total > 0 ? Math.round((paidPlayers.length / total) * 100) : 0
   };
 });
 

@@ -148,6 +148,11 @@ const routes = [
         component: () => import("../views/admin/financiero/PazySalvo.vue"),
       },
       {
+        path: "financiero/configuracion",
+        name: "FinancieroConfiguracion",
+        component: () => import("../views/admin/financiero/ConfiguracionCobros.vue"),
+      },
+      {
         path: "financiero/reportes",
         name: "FinancieroReportes",
         component: () => import("../views/admin/financiero/Reportes.vue"),

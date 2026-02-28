@@ -20,6 +20,16 @@ const authStore = useAuthStore();
 
 const role = computed(() => authStore.user?.role);
 
+const isCompetitive = (categoryName) => {
+  if (!categoryName) return false;
+  const n = categoryName.toLowerCase();
+  if (n.includes('escuela')) return false;
+  if (n.includes('primera')) return true;
+  const sub = n.match(/sub[\s-]*(\d+)/);
+  if (sub && parseInt(sub[1]) >= 13) return true;
+  return false;
+};
+
 const stats = computed(() => {
   const items = [];
 
@@ -32,11 +42,16 @@ const stats = computed(() => {
     );
   }
 
-  // Stats para Admin Financiero
-  if (role.value === 'admin_financiero') {
+  // Stats para Admin Financiero o Admin General
+  if (role.value === 'admin_financiero' || role.value === 'admin') {
     const paidPlayers = playersStore.players.filter(p => p.paymentStatus === 'Al Día');
     const pendingPlayers = playersStore.players.filter(p => p.paymentStatus === 'Pendiente' || !p.paymentStatus);
-    const totalCollected = paidPlayers.length * 50000;
+
+    // Cálculo dinámico según categoría
+    const totalCollected = paidPlayers.reduce((acc, p) => {
+      const amount = isCompetitive(p.category) ? 20000 : 50000;
+      return acc + amount;
+    }, 0);
 
     items.push(
       { name: 'Pagos Mes', value: `$${totalCollected.toLocaleString()}`, icon: 'fa-solid fa-dollar-sign', class: 'news', link: '/admin/financiero/pagos' },

@@ -42,6 +42,7 @@ const formData = ref({
   address: '',
   photo: '',
   dniImage: '',
+  dni: '',
   documentType: '',
   medicalCertificate: ''
 });
@@ -300,7 +301,8 @@ const handleInscripcion = async () => {
       parentEmail: authStore.parentUser?.email,
       parentName: formData.value.parentName,
       status: isEditing.value ? childData.value.paymentStatus : 'Pendiente',
-      registrationDate: childRegistry.registrationDate
+      registrationDate: childRegistry.registrationDate,
+      dni: formData.value.dni
     });
 
     if (success) {
@@ -397,6 +399,10 @@ const handleActualizar = () => {
                 <label>Nombre Completo <span class="req">*</span></label>
                 <input v-model="formData.fullName" type="text" class="form-control" required
                   placeholder="Nombre del hijo">
+              </div>
+              <div class="form-group">
+                <label>Número de Identificación ({{ documentLabelShort }}) <span class="req">*</span></label>
+                <input v-model="formData.dni" type="text" class="form-control" required placeholder="Ej: 1098...">
               </div>
               <div class="form-group">
                 <label>Fecha de Nacimiento <span class="req">*</span></label>
@@ -557,7 +563,7 @@ const handleActualizar = () => {
       <div class="panel-welcome">
         <div class="panel-welcome__text">
           <h1>¡Hola, <span>{{ authStore.parentUser?.name ? authStore.parentUser.name.split(' ')[0] : 'Acudiente'
-              }}</span>!</h1>
+          }}</span>!</h1>
           <p>Gestionando la información de <strong>{{ childData.playerName }}</strong></p>
         </div>
         <div class="panel-welcome__badge">

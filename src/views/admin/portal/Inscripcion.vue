@@ -16,6 +16,7 @@ const formData = ref({
   categoryId: '',
   position: '',
   medicalInfo: '',
+  dni: '',
   parentRelation: 'Padre/Madre'
 });
 
@@ -36,6 +37,7 @@ const handleSubmit = async () => {
     added_by: authStore.user.id,
     birth_date: formData.value.birthDate,
     position: formData.value.position,
+    dni: formData.value.dni,
     notes: formData.value.medicalInfo
   };
 
@@ -94,6 +96,11 @@ const handleSubmit = async () => {
             <div class="form-group">
               <label>Fecha de Nacimiento</label>
               <input v-model="formData.birthDate" type="date" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Número de Identificación</label>
+              <input v-model="formData.dni" type="text" class="form-control" placeholder="C.C. / T.I. / Registro"
+                required>
             </div>
           </div>
 

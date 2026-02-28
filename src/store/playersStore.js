@@ -148,6 +148,22 @@ export const usePlayersStore = defineStore('players', () => {
         }
     };
 
+    const updatePlayerDni = async (id, dni) => {
+        isLoading.value = true;
+        try {
+            const result = await apiService.request('players', 'PATCH', { id, dni });
+            if (result.status === 'success') {
+                await initPlayers();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error updating DNI:', err);
+        } finally {
+            isLoading.value = false;
+        }
+        return false;
+    };
+
     // Inicializar al cargar
     initPlayers();
 
@@ -161,6 +177,7 @@ export const usePlayersStore = defineStore('players', () => {
         updatePlayerStatus,
         updatePaymentStatus,
         updateParentEmail,
+        updatePlayerDni,
         deletePlayer
     };
 });

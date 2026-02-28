@@ -40,6 +40,11 @@
                                         placeholder="Ej: Juan Pérez">
                                 </div>
                                 <div class="form-group">
+                                    <label>Número de Identificación ({{ documentLabelShort }})</label>
+                                    <input v-model="formData.dni" type="text" class="form-control" required
+                                        placeholder="Ej: 1098...">
+                                </div>
+                                <div class="form-group">
                                     <label>Fecha de Nacimiento</label>
                                     <input v-model="formData.birthDate" type="date" class="form-control" required
                                         @change="calculateAge">
@@ -245,6 +250,7 @@ const formData = ref({
     address: '',
     photo: '',
     dniImage: '',
+    dni: '',
     documentType: '', // Registro, TI, CC
     medicalCertificate: ''
 });

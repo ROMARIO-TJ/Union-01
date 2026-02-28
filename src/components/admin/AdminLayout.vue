@@ -2,11 +2,20 @@
 import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../../store/authStore';
+import { usePaymentsStore } from '../../store/paymentsStore';
+import { onMounted } from 'vue';
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const paymentsStore = usePaymentsStore();
 const isMobileMenuOpen = ref(false);
+
+onMounted(() => {
+  if (authStore.adminUser) {
+    paymentsStore.fetchPazSalvoRequests();
+  }
+});
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
@@ -29,6 +38,10 @@ const currentUser = computed(() => {
   return isParentPortal ? authStore.parentUser : authStore.adminUser;
 });
 
+const pendingPazSalvos = computed(() => {
+  return paymentsStore.pazSalvoRequests.filter(r => r.status === 'Pendiente').length;
+});
+
 const closeMenuOnMobile = () => {
   if (window.innerWidth <= 768) {
     isMobileMenuOpen.value = false;
@@ -40,12 +53,12 @@ const navigation = computed(() => {
   const items = [];
 
   // Dashboard central (Solo para administradores, no para padres)
-  if (userRole === 'admin_contenido' || userRole === 'admin_financiero') {
+  if (userRole === 'admin_contenido' || userRole === 'admin_financiero' || userRole === 'admin') {
     items.push({ name: 'Dashboard', to: '/admin', icon: 'fa-solid fa-chart-line' });
   }
 
   // Gestión de Contenido (Admin General o Especializado)
-  if (userRole === 'admin_contenido' || !userRole) {
+  if (userRole === 'admin_contenido' || userRole === 'admin' || !userRole) {
     items.push(
       { name: 'Noticias', to: '/admin/news', icon: 'fa-solid fa-newspaper' },
       { name: 'Partidos', to: '/admin/matches', icon: 'fa-solid fa-futbol' },
@@ -62,10 +75,16 @@ const navigation = computed(() => {
   }
 
   // Administración Financiera
-  if (userRole === 'admin_financiero') {
+  if (userRole === 'admin_financiero' || userRole === 'admin') {
     items.push(
       { name: 'Pagos', to: '/admin/financiero/pagos', icon: 'fa-solid fa-credit-card' },
-      { name: 'Paz y Salvo', to: '/admin/financiero/paz-y-salvo', icon: 'fa-solid fa-file-invoice' },
+      {
+        name: 'Paz y Salvo',
+        to: '/admin/financiero/paz-y-salvo',
+        icon: 'fa-solid fa-file-invoice',
+        badge: pendingPazSalvos.value > 0 ? pendingPazSalvos.value : null
+      },
+      { name: 'Calendario Cobros', to: '/admin/financiero/configuracion', icon: 'fa-solid fa-calendar-check' },
       { name: 'Reportes', to: '/admin/financiero/reportes', icon: 'fa-solid fa-chart-pie' },
       { name: 'Gestión Jugadores', to: '/admin/players', icon: 'fa-solid fa-users-gear' },
       { name: 'Usuarios (Padres)', to: '/admin/users', icon: 'fa-solid fa-user-lock' },
@@ -77,7 +96,8 @@ const navigation = computed(() => {
   if (userRole === 'padre_familia') {
     items.push(
       { name: 'Mi Hijo', to: '/admin/portal/hijo', icon: 'fa-solid fa-child' },
-      { name: 'Mis Pagos', to: '/admin/portal/pagos', icon: 'fa-solid fa-wallet' }
+      { name: 'Mis Pagos', to: '/admin/portal/pagos', icon: 'fa-solid fa-wallet' },
+      { name: 'Paz y Salvo', to: '/admin/portal/paz-y-salvo', icon: 'fa-solid fa-file-signature' }
     );
   }
 
@@ -106,6 +126,7 @@ const navigation = computed(() => {
           :exact="item.to === '/admin'" @click="closeMenuOnMobile">
           <i :class="item.icon"></i>
           <span>{{ item.name }}</span>
+          <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
         </router-link>
       </nav>
 
@@ -130,7 +151,7 @@ const navigation = computed(() => {
         </div>
         <div class="admin-header__user">
           <span class="welcome-text">Bienvenido, <strong>{{ currentUser?.name || currentUser?.username
-              }}</strong></span>
+          }}</strong></span>
           <div class="user-avatar-mini">
             <i class="fa-solid fa-user-shield"></i>
           </div>

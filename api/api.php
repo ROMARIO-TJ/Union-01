@@ -61,7 +61,7 @@ switch ($action) {
         handleCrud($pdo, 'sponsors', $method, $id, $input);
         break;
     case 'payments':
-        handleCrud($pdo, 'payments', $method, $id, $input);
+        handlePayments($pdo, $method, $id, $input);
         break;
     case 'expenses':
         handleCrud($pdo, 'expenses', $method, $id, $input);
@@ -80,6 +80,18 @@ switch ($action) {
         break;
     case 'auth':
         handleAuth($pdo, $method, $input);
+        break;
+    case 'subscriptions':
+        handleCrud($pdo, 'club_subscriptions', $method, $id, $input);
+        break;
+    case 'billing_calendar':
+        handleCrud($pdo, 'billing_calendar', $method, $id, $input);
+        break;
+    case 'conventions':
+        handleCrud($pdo, 'player_conventions', $method, $id, $input);
+        break;
+    case 'paz_salvo':
+        handlePazSalvo($pdo, $method, $id, $input);
         break;
     default:
         response('error', 'Acción no válida: ' . $action);
@@ -279,8 +291,71 @@ function handleCrud($pdo, $table, $method, $id, $input) {
     }
 }
 
+function handlePayments($pdo, $method, $id, $input) {
+    if ($method === 'POST') {
+        if (!isset($input['jugadorId'])) {
+            // Intentar mapear si viene de un CRUD genérico antiguo
+            if (isset($input['player_id'])) $input['jugadorId'] = $input['player_id'];
+        }
+
+        // Lógica especial para sincronizar con club_subscriptions
+        if (isset($input['tipo']) && $input['tipo'] === 'Suscripción Club') {
+            $pdo->beginTransaction();
+            try {
+                // 1. Insertar en payments (usando el motor de handleCrud minimizado)
+                $stmtP = $pdo->prepare("INSERT INTO payments (jugadorId, tipo, mes, valor, metodo, fecha) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmtP->execute([
+                    $input['jugadorId'],
+                    $input['tipo'],
+                    $input['mes'] ?? date('n'),
+                    $input['valor'] ?? 20000,
+                    $input['metodo'] ?? 'Efectivo',
+                    $input['fecha'] ?? date('Y-m-d')
+                ]);
+                $paymentId = $pdo->lastInsertId();
+
+                // 2. Actualizar o Insertar en club_subscriptions
+                $year = date('Y');
+                $month = $input['mes'] ?? date('n');
+                
+                $stmtS = $pdo->prepare("UPDATE club_subscriptions SET status = 'Pagado', payment_id = ? WHERE player_id = ? AND month = ? AND year = ?");
+                $stmtS->execute([$paymentId, $input['jugadorId'], $month, $year]);
+                
+                if ($stmtS->rowCount() === 0) {
+                     $stmtInsS = $pdo->prepare("INSERT INTO club_subscriptions (player_id, month, year, amount, status, payment_id) VALUES (?, ?, ?, ?, 'Pagado', ?)");
+                     $stmtInsS->execute([$input['jugadorId'], $month, $year, $input['valor'] ?? 20000, $paymentId]);
+                }
+
+                $pdo->commit();
+                success("Pago de suscripción registrado y sincronizado correctamente");
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                response('error', 'Error al sincronizar pago de suscripción: ' . $e->getMessage());
+            }
+        } else {
+             handleCrud($pdo, 'payments', $method, $id, $input);
+        }
+    } else {
+        handleCrud($pdo, 'payments', $method, $id, $input);
+    }
+}
+
 function handlePlayers($pdo, $method, $id, $input) {
     try {
+        if ($method === 'PATCH' || $method === 'POST' || $method === 'PUT') {
+            // Asegurar que las columnas de identificación existen (Migración automática silenciosa)
+            try {
+                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS dni VARCHAR(50) DEFAULT NULL");
+                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS documentType VARCHAR(50) DEFAULT NULL");
+            } catch (\Throwable $t) { 
+                // Silencioso, probablemente el servidor no soporta IF NOT EXISTS o ya existen
+                try {
+                    $pdo->exec("ALTER TABLE players ADD dni VARCHAR(50) DEFAULT NULL");
+                    $pdo->exec("ALTER TABLE players ADD documentType VARCHAR(50) DEFAULT NULL");
+                } catch (\Throwable $t2) {}
+            }
+        }
+
         if ($method === 'PATCH') {
             if (!$id) response('error', 'ID requerido');
             
@@ -289,6 +364,11 @@ function handlePlayers($pdo, $method, $id, $input) {
                 $stmt->execute([$input['status'], $id]);
                 success("Estado de registro actualizado");
             } 
+            elseif (isset($input['dni'])) {
+                $stmt = $pdo->prepare("UPDATE players SET dni = ? WHERE id = ?");
+                $stmt->execute([$input['dni'], $id]);
+                success("Documento de identidad actualizado");
+            }
             elseif (isset($input['paymentStatus'])) {
                 // Asegurar que la columna existe (Migración automática silenciosa)
                 try {
@@ -372,13 +452,15 @@ function handleAuth($pdo, $method, $input) {
             echo json_encode(['status' => 'success', 'user' => $user]);
         } else {
             // Usuario nuevo de Google (Registro automático)
-            $stmt = $pdo->prepare("INSERT INTO users (name, email, google_id, role, photo) VALUES (?, ?, ?, ?, ?)");
+            $generatedUsername = explode('@', $email)[0] . '_' . rand(100, 999);
+            $stmt = $pdo->prepare("INSERT INTO users (name, email, google_id, role, photo, username) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['name'] ?? 'Usuario de Google',
                 $email,
                 $google_id,
                 'padre_familia',
-                $input['photo'] ?? null
+                $input['photo'] ?? null,
+                $generatedUsername
             ]);
             $newId = $pdo->lastInsertId();
             $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
@@ -400,5 +482,135 @@ function handleAuth($pdo, $method, $input) {
         echo json_encode(['status' => 'success', 'user' => $user]);
     } else {
         response('error', 'Credenciales incorrectas');
+    }
+}
+
+function handlePazSalvo($pdo, $method, $id, $input) {
+    if ($method === 'GET') {
+        if ($id) {
+            // Obtener una solicitud específica
+            $stmt = $pdo->prepare("SELECT r.*, p.fullName, p.category, p.email 
+                                 FROM peace_and_safety_requests r 
+                                 JOIN players p ON r.player_id = p.id 
+                                 WHERE r.id = ?");
+            $stmt->execute([$id]);
+            echo json_encode($stmt->fetch(PDO::FETCH_ASSOC));
+        } else {
+            // Listado de solicitudes con filtros
+            $status = $_GET['status'] ?? null;
+            $playerId = $_GET['player_id'] ?? null;
+            
+            $sql = "SELECT r.*, p.fullName, p.category, p.dni FROM peace_and_safety_requests r JOIN players p ON r.player_id = p.id";
+            $where = [];
+            $params = [];
+            
+            if ($status) { $where[] = "r.status = ?"; $params[] = $status; }
+            if ($playerId) { $where[] = "r.player_id = ?"; $params[] = $playerId; }
+            
+            if (!empty($where)) $sql .= " WHERE " . implode(" AND ", $where);
+            $sql .= " ORDER BY r.request_date DESC";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        }
+    } 
+    elseif ($method === 'POST') {
+        // Nueva solicitud o cálculo previo
+        $playerId = $input['player_id'] ?? null;
+        if (!$playerId) response('error', 'ID de jugador requerido');
+        
+        // 1. Obtener datos del jugador y su categoría
+        $stmtP = $pdo->prepare("SELECT * FROM players WHERE id = ?");
+        $stmtP->execute([$playerId]);
+        $player = $stmtP->fetch(PDO::FETCH_ASSOC);
+        if (!$player) response('error', 'Jugador no encontrado');
+        
+        // 2. Calcular Deudas
+        // a) Mensualidades pendientes (Lógica simplificada por ahora: buscar pagos tipo 'Mensualidad' faltantes)
+        // En una implementación real, esto compararía con meses activos en billing_calendar
+        $stmtM = $pdo->prepare("SELECT SUM(valor) as pagado FROM payments WHERE jugadorId = ? AND tipo = 'Mensualidad'");
+        $stmtM->execute([$playerId]);
+        // Nota: Esta lógica requiere saber cuántos meses debería haber pagado.
+        // Por simplicidad para el MVP, asumiremos que se envía la deuda calculada o se basa en un cálculo de meses activos.
+        $monthlyDebt = $input['monthly_debt'] ?? 0; 
+        
+        // b) Suscripción Club ($20.000 x meses pendientes) - SOLO PARA COMPETITIVOS
+        $isEscuela = (strpos(strtolower($player['category']), 'escuela') !== false);
+        
+        $subscriptionDebt = 0;
+        if (!$isEscuela) {
+            $stmtS = $pdo->prepare("SELECT COUNT(*) as pendientes FROM club_subscriptions WHERE player_id = ? AND status = 'Pendiente'");
+            $stmtS->execute([$playerId]);
+            $subsPendientes = $stmtS->fetch(PDO::FETCH_ASSOC)['pendientes'];
+            $subscriptionDebt = $subsPendientes * 20000;
+        }
+        
+        // c) Convenio
+        $stmtC = $pdo->prepare("SELECT discount_amount FROM player_conventions WHERE player_id = ? AND active = 1 ORDER BY id DESC LIMIT 1");
+        $stmtC->execute([$playerId]);
+        $convention = $stmtC->fetch(PDO::FETCH_ASSOC);
+        $discount = $convention ? $convention['discount_amount'] : 0;
+        
+        // Valor base: 200k para competitivos, 0 para Escuela
+        $baseValue = $isEscuela ? 0 : 200000;
+        
+        $totalToPay = $monthlyDebt + $subscriptionDebt + ($baseValue - $discount);
+        if ($totalToPay < 0) $totalToPay = 0;
+
+        // Si es solo para CÁLCULO (sin guardar)
+        if (isset($input['only_calculate']) && $input['only_calculate']) {
+            echo json_encode([
+                'status' => 'success',
+                'data' => [
+                    'monthly_debt' => $monthlyDebt,
+                    'subscription_debt' => $subscriptionDebt,
+                    'base_value' => $baseValue,
+                    'convention_discount' => $discount,
+                    'total_to_pay' => $totalToPay,
+                    'is_escuela' => (strpos(strtolower($player['category']), 'escuela') !== false)
+                ]
+            ]);
+            exit;
+        }
+
+        // GUARDAR SOLICITUD
+        $stmtIns = $pdo->prepare("INSERT INTO peace_and_safety_requests 
+            (player_id, monthly_debt, subscription_debt, base_value, convention_discount, total_to_pay, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)");
+        
+        $status = (strpos(strtolower($player['category']), 'escuela') !== false && $totalToPay <= 0) ? 'Generado' : 'Pendiente';
+        
+        $stmtIns->execute([
+            $playerId, 
+            $monthlyDebt, 
+            $subscriptionDebt, 
+            $baseValue, 
+            $discount, 
+            $totalToPay,
+            $status
+        ]);
+        
+        success($status === 'Generado' ? "Paz y Salvo generado automáticamente" : "Solicitud enviada correctamente");
+    }
+    elseif ($method === 'PUT' || $method === 'PATCH') {
+        // Actualizar estado (Aprobar/Rechazar)
+        if (!$id) response('error', 'ID requerido');
+        
+        $fields = [];
+        $params = [];
+        foreach (['status', 'rejection_reason', 'approved_by', 'pdf_path'] as $f) {
+            if (isset($input[$f])) {
+                $fields[] = "$f = ?";
+                $params[] = $input[$f];
+            }
+        }
+        
+        if (empty($fields)) response('error', 'Nada que actualizar');
+        
+        $params[] = $id;
+        $stmtUpd = $pdo->prepare("UPDATE peace_and_safety_requests SET " . implode(', ', $fields) . " WHERE id = ?");
+        $stmtUpd->execute($params);
+        success("Solicitud actualizada");
     }
 }

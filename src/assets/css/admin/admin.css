@@ -94,6 +94,19 @@
   text-align: center;
 }
 
+.nav-badge {
+  background: var(--admin-danger);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: auto;
+  min-width: 18px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
 .admin-sidebar__footer {
   padding: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
