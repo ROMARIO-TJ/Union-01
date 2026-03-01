@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiService } from '../services/api';
+import { useTournamentStore } from './tournamentStore';
 
 export const useMatchesStore = defineStore('matches', () => {
     const matches = ref([]);
@@ -106,6 +107,8 @@ export const useMatchesStore = defineStore('matches', () => {
             const result = await apiService.request('matches', 'POST', mapToDbFields(match));
             if (result.status === 'success') {
                 await initMatches();
+                const tournamentStore = useTournamentStore();
+                await tournamentStore.recalculateAllStandings(matches.value);
                 return true;
             }
         } catch (err) {
@@ -122,6 +125,8 @@ export const useMatchesStore = defineStore('matches', () => {
             const result = await apiService.request('matches', 'PUT', { ...mapToDbFields(updatedMatch), id });
             if (result.status === 'success') {
                 await initMatches();
+                const tournamentStore = useTournamentStore();
+                await tournamentStore.recalculateAllStandings(matches.value);
                 return true;
             }
         } catch (err) {
@@ -138,6 +143,8 @@ export const useMatchesStore = defineStore('matches', () => {
             const result = await apiService.request('matches', 'DELETE', { id });
             if (result.status === 'success') {
                 await initMatches();
+                const tournamentStore = useTournamentStore();
+                await tournamentStore.recalculateAllStandings(matches.value);
                 return true;
             }
         } catch (err) {
@@ -164,7 +171,8 @@ export const useMatchesStore = defineStore('matches', () => {
 
     // Helper para parsear fechas "15 Ago" a objetos Date
     const parseDate = (dateStr, timeStr) => {
-        if (!dateStr || !timeStr) return new Date(8640000000000000);
+        if (!dateStr) return new Date(8640000000000000);
+        if (!timeStr) timeStr = '00:00';
 
         const months = {
             'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
@@ -193,7 +201,13 @@ export const useMatchesStore = defineStore('matches', () => {
     };
 
     const getFinishedMatches = () => {
-        return matches.value.filter(m => m.status === 'finished');
+        return matches.value
+            .filter(m => m.status === 'finished')
+            .sort((a, b) => {
+                const dateA = parseDate(a.date, a.time);
+                const dateB = parseDate(b.date, b.time);
+                return dateB - dateA;
+            });
     };
 
     // Inicializar al cargar

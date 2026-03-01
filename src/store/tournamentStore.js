@@ -118,6 +118,69 @@ export const useTournamentStore = defineStore('tournament', () => {
         isLoading.value = false;
         return false;
     };
+    const recalculateAllStandings = async (matches) => {
+        const newStandings = JSON.parse(JSON.stringify(standings.value));
+
+        const normalize = (cat) => cat?.trim().toLowerCase().replace(/\s+/g, ' ').replace('sub-', 'sub ').replace(/sub(\d+)/, 'sub $1');
+
+        newStandings.forEach(categoryStandings => {
+            const catMatches = matches.filter(m =>
+                m.status === 'finished' &&
+                normalize(m.category) === normalize(categoryStandings.category)
+            );
+
+            categoryStandings.teams.forEach(team => {
+                team.played = 0; team.won = 0; team.drawn = 0; team.lost = 0;
+                team.gf = 0; team.ga = 0; team.points = 0;
+            });
+
+            catMatches.forEach(m => {
+                const homeScore = parseInt(m.homeScore);
+                const awayScore = parseInt(m.awayScore);
+                if (isNaN(homeScore) || isNaN(awayScore)) return;
+
+                const isHomeDescansa = m.homeTeam?.toUpperCase().includes('DESCANSA');
+                const isAwayDescansa = m.awayTeam?.toUpperCase().includes('DESCANSA');
+
+                if (isHomeDescansa || isAwayDescansa) return;
+
+                const updateTeam = (teamName, goalsFor, goalsAgainst) => {
+                    let team = categoryStandings.teams.find(t => t.name.toUpperCase() === teamName.toUpperCase());
+                    if (!team) {
+                        team = { name: teamName, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0 };
+                        categoryStandings.teams.push(team);
+                    }
+                    team.played += 1;
+                    team.gf += goalsFor;
+                    team.ga += goalsAgainst;
+                    if (goalsFor > goalsAgainst) {
+                        team.won += 1;
+                        team.points += 3;
+                    } else if (goalsFor === goalsAgainst) {
+                        team.drawn += 1;
+                        team.points += 1;
+                    } else {
+                        team.lost += 1;
+                    }
+                };
+
+                updateTeam(m.homeTeam, homeScore, awayScore);
+                updateTeam(m.awayTeam, awayScore, homeScore);
+            });
+
+            categoryStandings.teams.sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                const diffA = a.gf - a.ga;
+                const diffB = b.gf - b.ga;
+                if (diffB !== diffA) return diffB - diffA;
+                return b.gf - a.gf;
+            });
+        });
+
+        standings.value = newStandings;
+        saveLocally();
+        await saveToServer();
+    };
 
     initStandings();
 
@@ -128,6 +191,7 @@ export const useTournamentStore = defineStore('tournament', () => {
         error,
         initStandings,
         getStandingsByCategory,
-        updateStandings
+        updateStandings,
+        recalculateAllStandings
     };
 });

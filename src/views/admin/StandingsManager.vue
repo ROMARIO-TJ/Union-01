@@ -1,8 +1,10 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
 import { useTournamentStore } from '../../store/tournamentStore';
+import { useMatchesStore } from '../../store/matchesStore';
 
 const tournamentStore = useTournamentStore();
+const matchesStore = useMatchesStore();
 const selectedCategory = ref(tournamentStore.standings[0]?.id || '');
 
 const currentStandings = computed(() => {
@@ -46,15 +48,31 @@ const saveChanges = () => {
     editableTeams.value = JSON.parse(JSON.stringify(data.teams));
     alert('Tabla guardada y actualizada exitosamente.');
 };
+
+const handleRecalculate = async () => {
+    if (confirm('¿Estás seguro de que deseas recalcular la tabla automáticamente según los partidos registrados? Esto sobreescribirá los cambios manuales.')) {
+        await tournamentStore.recalculateAllStandings(matchesStore.matches);
+        const data = tournamentStore.standings.find(s => s.id === selectedCategory.value);
+        if (data) {
+            editableTeams.value = JSON.parse(JSON.stringify(data.teams));
+        }
+        alert('Tabla recalculada exitosamente.');
+    }
+};
 </script>
 
 <template>
     <div class="standings-manager">
         <div class="admin-toolbar">
             <h2>Gestionar Tabla de Posiciones</h2>
-            <button @click="saveChanges" class="btn-admin btn-admin--primary">
-                <i class="fa-solid fa-save"></i> Guardar Cambios
-            </button>
+            <div style="display: flex; gap: 1rem;">
+                <button @click="handleRecalculate" class="btn-admin" style="background: #3b82f6; color: white;">
+                    <i class="fa-solid fa-calculator"></i> Recalcular Automático
+                </button>
+                <button @click="saveChanges" class="btn-admin btn-admin--primary">
+                    <i class="fa-solid fa-save"></i> Guardar Cambios
+                </button>
+            </div>
         </div>
 
         <!-- Category Selector -->

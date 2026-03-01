@@ -26,11 +26,17 @@
         <!-- STANDINGS SECTION (Visible if category selected) -->
         <div v-if="selectedCategory !== 'Todos'" class="standings-section">
             <div class="container">
-                <h2 class="section-title">Tabla de <span class="text-accent">Posiciones</span></h2>
-                <div v-if="currentStandings && currentStandings.teams.length > 0" class="table-container">
+                <div class="section-header-centered">
+                    <h2 class="section-title">Tabla de <span class="text-accent">Posiciones</span></h2>
+                    <p class="section-subtitle">Clasifican los mejores <span class="highlight-text">4 equipos</span> a
+                        la siguiente fase</p>
+                </div>
+
+                <div v-if="currentStandings && currentStandings.teams.length > 0"
+                    class="table-container premium-shadow">
                     <table class="standings-table">
                         <thead>
-                            <tr>
+                            <tr class="desktop-only-header">
                                 <th>Pos</th>
                                 <th>Equipo</th>
                                 <th>PJ</th>
@@ -40,17 +46,47 @@
                                 <th>DG</th>
                                 <th>Pts</th>
                             </tr>
+                            <tr class="mobile-only-header">
+                                <th>#</th>
+                                <th>Equipo</th>
+                                <th>PJ</th>
+                                <th>G</th>
+                                <th>Pts</th>
+                            </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(team, index) in currentStandings.teams" :key="index">
-                                <td class="pos-cell">{{ index + 1 }}</td>
-                                <td class="team-cell">{{ team.name }}</td>
-                                <td>{{ team.played }}</td>
-                                <td>{{ team.won }}</td>
-                                <td>{{ team.drawn }}</td>
-                                <td>{{ team.lost }}</td>
-                                <td>{{ team.gf - team.ga }}</td>
-                                <td class="points-cell">{{ team.points }}</td>
+                            <tr v-for="(team, index) in currentStandings.teams" :key="index"
+                                :class="{ 'classification-zone': index < 4 }">
+                                <td class="pos-cell">
+                                    <div class="pos-badge" :class="`rank-${index + 1}`">{{ index + 1 }}</div>
+                                </td>
+                                <td class="team-cell">
+                                    <div class="team-info">
+                                        <div class="team-logo-mini">
+                                            <img v-if="getTeamLogo(team.name)" :src="getTeamLogo(team.name)"
+                                                :alt="team.name">
+                                            <span v-else class="material-symbols-outlined">shield</span>
+                                        </div>
+                                        <span class="team-name-text">{{ team.name }}</span>
+                                    </div>
+                                </td>
+                                <!-- Desktop Stats -->
+                                <td class="desktop-stat">{{ team.played }}</td>
+                                <td class="desktop-stat">{{ team.won }}</td>
+                                <td class="desktop-stat">{{ team.drawn }}</td>
+                                <td class="desktop-stat">{{ team.lost }}</td>
+                                <td class="dg-cell desktop-stat"
+                                    :class="{ 'pos-dg': (team.gf - team.ga) > 0, 'neg-dg': (team.gf - team.ga) < 0 }">
+                                    {{ (team.gf - team.ga) > 0 ? '+' : '' }}{{ team.gf - team.ga }}
+                                </td>
+
+                                <!-- Mobile Stats (Condensed) -->
+                                <td class="mobile-stat">{{ team.played }}</td>
+                                <td class="mobile-stat goals-stat">{{ team.gf }}:{{ team.ga }}</td>
+
+                                <td class="points-cell">
+                                    <span class="pts-badge">{{ team.points }}</span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -279,8 +315,8 @@ const applyAutoSelection = () => {
     }
 
     if (finishedDates.value.length > 0) {
-        // En los terminados mostramos siempre la última fecha jugada (asumiendo orden cronológico)
-        selectedFinishedDate.value = finishedDates.value[finishedDates.value.length - 1];
+        // Seleccionamos la primera posición porque ahora vienen ordenados temporalmente descendiendo
+        selectedFinishedDate.value = finishedDates.value[0];
     } else {
         selectedFinishedDate.value = 'Todas';
     }
@@ -686,90 +722,322 @@ const displayFinished = computed(() => {
     background: rgba(255, 255, 255, 0.05);
 }
 
-/* STANDINGS TABLE */
+/* STANDINGS TABLE PREMIUM REDESIGN */
 .standings-section {
     background: var(--bg-secondary);
+    padding: 4rem 0;
 }
 
-.table-container {
+.section-header-centered {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.section-subtitle {
+    margin-top: -1.5rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.highlight-text {
+    color: var(--accent-color);
+    font-weight: 800;
+}
+
+.table-container.premium-shadow {
+    position: relative;
     overflow-x: auto;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
     background: var(--card-bg);
+    border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.table-container.premium-shadow::before {
+    content: "";
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 350px;
+    height: 350px;
+    background-image: url('../assets/img/logosinfondo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 0;
 }
 
 .standings-table {
+    position: relative;
+    z-index: 1;
     width: 100%;
     border-collapse: collapse;
-    min-width: 600px;
+    min-width: 750px;
+    border: none;
 }
 
 .standings-table th {
     background: var(--accent-color);
     color: #fff;
-    padding: 1rem;
+    padding: 1.2rem;
     text-align: center;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
+    letter-spacing: 1px;
+    border: none;
+    /* Eliminamos bordes individuales que puedan crear huecos */
 }
 
 .standings-table td {
-    padding: 1rem;
+    padding: 1.2rem 1rem;
     text-align: center;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.standings-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* CLASSIFICATION ZONE HIGHLIGHT */
+.classification-zone {
+    background: rgba(31, 167, 116, 0.05);
+}
+
+/* Reemplazamos el borde lateral por una línea más limpia que no mueva la tabla */
+.classification-zone td:first-child {
+    box-shadow: inset 4px 0 0 var(--accent-color);
+}
+
+/* POS BADGES */
+.pos-cell {
+    width: 80px;
+}
+
+.pos-badge {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    border-radius: 8px;
+    background: var(--bg-secondary);
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 800;
+    font-size: 0.9rem;
 }
 
-:root.dark .standings-table td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.rank-1,
+.rank-2,
+.rank-3,
+.rank-4 {
+    background: var(--accent-color);
+    color: white;
+    box-shadow: 0 4px 10px rgba(31, 167, 116, 0.3);
 }
 
-.standings-table tr:hover {
+/* TEAM INFO CELL */
+.team-cell {
+    text-align: left !important;
+    min-width: 250px;
+}
+
+.team-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.team-logo-mini {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    padding: 5px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.team-logo-mini img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.team-name-text {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1.05rem;
+}
+
+/* DG CELL */
+.dg-cell {
+    font-family: 'Inter', monospace;
+    font-weight: 700;
+}
+
+.pos-dg {
+    color: var(--accent-color);
+}
+
+.neg-dg {
+    color: #ef4444;
+}
+
+/* POINTS CELL */
+.points-cell {
+    width: 100px;
+}
+
+.pts-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: rgba(31, 167, 116, 0.1);
+    color: var(--accent-color);
+    border-radius: 10px;
+    font-weight: 900;
+    font-size: 1.1rem;
+    min-width: 50px;
+    text-align: center;
+}
+
+.classification-zone .pts-badge {
+    background: var(--accent-color);
+    color: white;
+    box-shadow: 0 4px 12px rgba(31, 167, 116, 0.2);
+}
+
+.standings-table tr:hover td {
     background: rgba(0, 0, 0, 0.02);
 }
 
-:root.dark .standings-table tr:hover {
-    background: rgba(255, 255, 255, 0.02);
+:root.dark .team-logo-mini {
+    background: rgba(255, 255, 255, 0.1);
 }
 
-.team-cell {
-    text-align: left !important;
-    font-weight: 700 !important;
-    color: var(--text-primary) !important;
-}
-
-.pos-cell {
-    font-weight: 800;
-    color: var(--text-secondary);
-}
-
-.standings-table tr:nth-child(1) .pos-cell {
-    color: #FFD700;
-}
-
-/* Gold */
-.standings-table tr:nth-child(2) .pos-cell {
-    color: #C0C0C0;
-}
-
-/* Silver */
-.standings-table tr:nth-child(3) .pos-cell {
-    color: #CD7F32;
-}
-
-/* Bronze */
-
-.points-cell {
-    font-weight: 900 !important;
-    color: var(--accent-color) !important;
-    font-size: 1.1rem;
-    background: rgba(31, 167, 116, 0.05);
+/* FLASH SCORE MOBILE ADAPTATION */
+.mobile-only-header,
+.mobile-stat {
+    display: none;
 }
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
+
+    .desktop-only-header,
+    .desktop-stat {
+        display: none;
+    }
+
+    .mobile-only-header {
+        /* Eliminamos el flex para que actúe como fila de tabla real */
+        display: table-row !important;
+    }
+
+    .mobile-stat {
+        display: table-cell !important;
+    }
+
+    .standings-table {
+        min-width: 100%;
+        width: 100%;
+        table-layout: fixed;
+        /* Mantenemos fixed para controlar los anchos exactos */
+    }
+
+    .standings-table th,
+    .standings-table td {
+        font-size: 0.75rem;
+        padding: 0.6rem 0.15rem;
+        vertical-align: middle;
+    }
+
+    /* Definimos anchos fijos para que el THEAD y el TBODY se alineen perfectamente */
+    .pos-cell,
+    .mobile-only-header th:first-child {
+        width: 30px;
+    }
+
+    .team-cell,
+    .mobile-only-header th:nth-child(2) {
+        width: auto;
+        /* El resto del espacio */
+    }
+
+    .mobile-stat,
+    .mobile-only-header th:nth-child(3),
+    .mobile-only-header th:nth-child(4) {
+        width: 35px;
+        text-align: center;
+    }
+
+    .goals-stat {
+        width: 45px !important;
+    }
+
+    .points-cell,
+    .mobile-only-header th:last-child {
+        width: 40px;
+    }
+
+    .classification-zone,
+    tr {
+        /* Quitamos el flex de las filas del cuerpo para que se alineen con las columnas */
+        display: table-row;
+    }
+
+    .points-cell {
+        width: 35px;
+        /* Puntos pegados al borde derecho */
+        padding-right: 0.4rem !important;
+    }
+
+    .pos-badge {
+        width: 100%;
+        border-radius: 0px;
+    }
+
+    .team-name-text {
+        font-size: 0.7rem;
+    }
+
+    .pts-badge {
+        padding: 0.1rem 0;
+        min-width: 18px;
+        font-size: 0.6rem;
+        border-radius: 4px;
+        /* display: block; */
+        margin: 0 auto;
+    }
+
+    .container {
+        padding: 0 0.3rem;
+    }
+
+    .table-container.premium-shadow {
+        border-radius: 8px;
+    }
+
+    .table-container.premium-shadow::before {
+        width: 180px;
+        height: 180px;
+        opacity: 0.12;
+        /* Un poco más visible en móvil por ser pequeño */
+    }
+
+    .standings-section {
+        padding: 2rem 0;
+    }
 
     .match-card.upcoming .match-body {
         flex-direction: column;
