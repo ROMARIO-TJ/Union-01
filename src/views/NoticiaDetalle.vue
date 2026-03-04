@@ -287,14 +287,19 @@ onMounted(() => {
 /* FEATURED IMAGE */
 .article-image {
     width: 100%;
-    max-height: 500px;
+    height: 600px;
+    background: #000;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .article-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
 }
 
 /* CONTENT */

@@ -164,6 +164,22 @@ export const usePlayersStore = defineStore('players', () => {
         return false;
     };
 
+    const updateSponsorship = async (id, sponsorshipData) => {
+        isLoading.value = true;
+        try {
+            const result = await apiService.request('players', 'PATCH', { id, ...sponsorshipData });
+            if (result.status === 'success') {
+                await initPlayers();
+                return true;
+            }
+        } catch (err) {
+            console.error('Error updating sponsorship:', err);
+        } finally {
+            isLoading.value = false;
+        }
+        return false;
+    };
+
     // Inicializar al cargar
     initPlayers();
 
@@ -178,6 +194,7 @@ export const usePlayersStore = defineStore('players', () => {
         updatePaymentStatus,
         updateParentEmail,
         updatePlayerDni,
+        updateSponsorship,
         deletePlayer
     };
 });

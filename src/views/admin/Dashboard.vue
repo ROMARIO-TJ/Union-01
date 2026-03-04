@@ -8,6 +8,7 @@ import { useSponsorsStore } from '../../store/sponsorsStore';
 import { usePlayersStore } from '../../store/playersStore';
 import { useCategoryStore } from '../../store/categoryStore';
 import { useAuthStore } from '../../store/authStore';
+import { usePaymentsStore } from '../../store/paymentsStore';
 
 const router = useRouter();
 const newsStore = useNewsStore();
@@ -17,6 +18,7 @@ const sponsorsStore = useSponsorsStore();
 const playersStore = usePlayersStore();
 const categoryStore = useCategoryStore();
 const authStore = useAuthStore();
+const paymentsStore = usePaymentsStore();
 
 const role = computed(() => authStore.user?.role);
 
@@ -44,19 +46,22 @@ const stats = computed(() => {
 
   // Stats para Admin Financiero o Admin General
   if (role.value === 'admin_financiero' || role.value === 'admin') {
-    const paidPlayers = playersStore.players.filter(p => p.paymentStatus === 'Al Día');
-    const pendingPlayers = playersStore.players.filter(p => p.paymentStatus === 'Pendiente' || !p.paymentStatus);
+    const paidPlayersCount = playersStore.players.filter(p => p.paymentStatus === 'Al Día').length;
+    const pendingPlayersCount = playersStore.players.filter(p => p.paymentStatus !== 'Al Día').length;
 
-    // Cálculo dinámico según categoría
-    const totalCollected = paidPlayers.reduce((acc, p) => {
-      const amount = isCompetitive(p.category) ? 20000 : 50000;
-      return acc + amount;
-    }, 0);
+    // Calcular lo recaudado REAL en este mes (Mensualidades + Inscripciones + Otros)
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    
+    const collectedThisMonth = paymentsStore.historicalPayments.filter(p => 
+      parseInt(p.mes) === currentMonth && 
+      parseInt(p.year) === currentYear
+    ).reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
 
     items.push(
-      { name: 'Pagos Mes', value: `$${totalCollected.toLocaleString()}`, icon: 'fa-solid fa-dollar-sign', class: 'news', link: '/admin/financiero/pagos' },
-      { name: 'Pendientes', value: pendingPlayers.length, icon: 'fa-solid fa-clock', class: 'club', link: '/admin/financiero/pagos' },
-      { name: 'Paz y Salvos', value: paidPlayers.length, icon: 'fa-solid fa-file-circle-check', class: 'matches', link: '/admin/financiero/paz-y-salvo' },
+      { name: 'Caja del Mes', value: `$${collectedThisMonth.toLocaleString()}`, icon: 'fa-solid fa-cash-register', class: 'news', link: '/admin/financiero/pagos' },
+      { name: 'Pendientes', value: pendingPlayersCount, icon: 'fa-solid fa-clock', class: 'club', link: '/admin/financiero/pagos' },
+      { name: 'Paz y Salvos', value: paidPlayersCount, icon: 'fa-solid fa-file-circle-check', class: 'matches', link: '/admin/financiero/paz-y-salvo' },
       { name: 'Jugadores', value: playersStore.players.length, icon: 'fa-solid fa-users', class: 'players', link: '/admin/players' },
       { name: 'Categorías', value: categoryStore.categories.length, icon: 'fa-solid fa-tags', class: 'categories', link: '/admin/categories' }
     );
@@ -69,12 +74,16 @@ const latestNews = computed(() => newsStore.getLatestNews(5));
 const upcomingMatches = computed(() => matchesStore.getUpcomingMatches().slice(0, 5));
 
 // Redirigir padres directamente a su portal
-onMounted(() => {
+onMounted(async () => {
   if (role.value === 'padre_familia') {
     router.replace('/admin/portal/hijo');
   } else {
-    // Cargar datos iniciales para admin
-    playersStore.initPlayers?.();
+    // Sincronizar finanzas y cargar datos iniciales para admin
+    await Promise.all([
+      playersStore.initPlayers(),
+      paymentsStore.fetchAllPayments(),
+      paymentsStore.syncFinances()
+    ]);
   }
 });
 </script>

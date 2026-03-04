@@ -254,6 +254,51 @@
                                 <span class="label">Dirección</span>
                                 <span class="value">{{ selectedPlayer.address || 'No proporcionada' }}</span>
                             </div>
+
+                            <!-- SECCIÓN DE PATROCINIO / BECAS -->
+                            <div class="info-box full sponsorship-section">
+                                <div class="sponsorship-header">
+                                    <span class="label"><i class="fa-solid fa-hand-holding-heart"></i> Patrocinio y Becas</span>
+                                    <button v-if="!isEditingSponsorship" @click="startEditSponsorship" class="btn-mini-edit">
+                                        <i class="fa-solid fa-pen"></i> Gestionar Beca
+                                    </button>
+                                </div>
+                                
+                                <div v-if="!isEditingSponsorship" class="sponsorship-display">
+                                    <span v-if="selectedPlayer.sponsorship === 'full'" class="sponsorship-badge full">
+                                        Patrocinio Total (Beca 100%)
+                                    </span>
+                                    <span v-else-if="selectedPlayer.sponsorship === 'partial'" class="sponsorship-badge partial">
+                                        Apoyo Club (Beca 50%)
+                                    </span>
+                                    <span v-else-if="selectedPlayer.custom_fee" class="sponsorship-badge custom">
+                                        Cuota Especial: ${{ Number(selectedPlayer.custom_fee).toLocaleString() }}
+                                    </span>
+                                    <span v-else class="value">Sin patrocinio (Particular)</span>
+                                </div>
+
+                                <div v-else class="sponsorship-edit-form">
+                                    <div class="form-row">
+                                        <select v-model="tempSponsorship" class="admin-input-mini">
+                                            <option value="none">Sin Patrocinio</option>
+                                            <option value="partial">Apoyo Club (50%)</option>
+                                            <option value="full">Patrocinio Total (100%)</option>
+                                        </select>
+                                        <div class="custom-fee-input" v-if="tempSponsorship !== 'full'">
+                                            <label>Cuota Personalizada ($):</label>
+                                            <input v-model="tempCustomFee" type="number" class="admin-input-mini" placeholder="Ej: 30000">
+                                        </div>
+                                    </div>
+                                    <div class="mini-actions" style="margin-top: 10px; justify-content: flex-end;">
+                                        <button @click="saveSponsorship" class="btn-mini-save" :disabled="playersStore.isLoading">
+                                            <i class="fa-solid fa-check"></i> Guardar Cambios
+                                        </button>
+                                        <button @click="isEditingSponsorship = false" class="btn-mini-cancel">
+                                            <i class="fa-solid fa-xmark"></i> Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="status-actions">
@@ -394,13 +439,17 @@ const filteredPlayers = computed(() => {
 
 const isEditingEmail = ref(false);
 const isEditingDni = ref(false);
+const isEditingSponsorship = ref(false);
 const tempEmail = ref('');
 const tempDni = ref('');
+const tempSponsorship = ref('none');
+const tempCustomFee = ref(null);
 
 const viewDetails = (player) => {
     selectedPlayer.value = { ...player };
     isEditingEmail.value = false;
     isEditingDni.value = false;
+    isEditingSponsorship.value = false;
     isModalOpen.value = true;
 };
 
@@ -409,6 +458,30 @@ const closeModal = () => {
     selectedPlayer.value = null;
     isEditingEmail.value = false;
     isEditingDni.value = false;
+    isEditingSponsorship.value = false;
+};
+
+const startEditSponsorship = () => {
+    tempSponsorship.value = selectedPlayer.value.sponsorship || 'none';
+    tempCustomFee.value = selectedPlayer.value.custom_fee || null;
+    isEditingSponsorship.value = true;
+};
+
+const saveSponsorship = async () => {
+    try {
+        const data = {
+            sponsorship: tempSponsorship.value,
+            custom_fee: tempCustomFee.value
+        };
+        const success = await playersStore.updateSponsorship(selectedPlayer.value.id, data);
+        if (success) {
+            selectedPlayer.value.sponsorship = tempSponsorship.value;
+            selectedPlayer.value.custom_fee = tempCustomFee.value;
+            isEditingSponsorship.value = false;
+        }
+    } catch (e) {
+        alert('Error al actualizar patrocinio: ' + e.message);
+    }
 };
 
 const startEditEmail = () => {
@@ -934,5 +1007,62 @@ const deletePlayer = async (id) => {
 .mini-actions {
     display: flex;
     gap: 0.2rem;
+}
+/* SPONSORSHIP STYLES */
+.sponsorship-section {
+    background: #fdfaf5;
+    border-left: 4px solid #f39c12 !important;
+    padding: 1rem !important;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.sponsorship-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.sponsorship-display {
+    padding: 0.5rem 0;
+}
+
+.sponsorship-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.sponsorship-badge.full {
+    background: #e1f7ec;
+    color: #1fa774;
+    border: 1px solid #1fa774;
+}
+
+.sponsorship-badge.partial {
+    background: #fff3e0;
+    color: #e67e22;
+    border: 1px solid #e67e22;
+}
+
+.sponsorship-badge.custom {
+    background: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #1976d2;
+}
+
+.sponsorship-edit-form .form-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.custom-fee-input label {
+    font-size: 0.75rem;
+    display: block;
+    margin-bottom: 2px;
+    color: #666;
 }
 </style>

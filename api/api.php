@@ -93,265 +93,350 @@ switch ($action) {
     case 'paz_salvo':
         handlePazSalvo($pdo, $method, $id, $input);
         break;
+    case 'sync_finances':
+        syncBillingCalendar($pdo);
+        recalculateAllPlayersStatus($pdo);
+        success("Sincronización financiera completada");
+        break;
     default:
         response('error', 'Acción no válida: ' . $action);
 }
 
-function handleContact($pdo, $input) {
-    if (empty($input['name']) || empty($input['email']) || empty($input['message'])) {
-        response('error', 'Faltan campos obligatorios');
-    }
-
-    $to = "union_user@unionjaguera.com";
-    $subject = "Nuevo mensaje de contacto: " . ($input['subject'] ?? 'Página Web');
-    
-    // HTML Message
-    $message = "
-    <html>
-    <head><style>body{font-family:sans-serif;line-height:1.6;color:#333;}.header{background:#1fa774;color:white;padding:20px; text-align:center;}.content{padding:20px; background:#f9f9f9; border:1px solid #eee;}</style></head>
-    <body>
-        <div class='header'><h2>Nuevo Mensaje - Unión Jaguera</h2></div>
-        <div class='content'>
-            <p><strong>De:</strong> " . htmlspecialchars($input['name']) . " (" . htmlspecialchars($input['email']) . ")</p>
-            <p><strong>Teléfono:</strong> " . htmlspecialchars($input['phone'] ?? 'N/A') . "</p>
-            <p><strong>Asunto:</strong> " . htmlspecialchars($input['subject'] ?? 'N/A') . "</p>
-            <hr>
-            <p><strong>Mensaje:</strong></p>
-            <p>" . nl2br(htmlspecialchars($input['message'])) . "</p>
-        </div>
-    </body>
-    </html>";
-
-    $headers = "MIME-Version: 1.0" . "\r\n";
-    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-    $headers .= "From: Union Jaguera Site <union_user@unionjaguera.com>" . "\r\n";
-    $headers .= "Reply-To: " . $input['email'] . "\r\n";
-
-    $mailSent = @mail($to, $subject, $message, $headers);
-
-    // Save to Database too
+function syncBillingCalendar($pdo) {
+    // 1. Asegurar que las tablas existan (Migración automática)
     try {
-        $stmt = $pdo->prepare("INSERT INTO contact_messages (name, email, phone, subject, message, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-        $stmt->execute([
-            $input['name'],
-            $input['email'],
-            $input['phone'] ?? '',
-            $input['subject'] ?? '',
-            $input['message']
-        ]);
-    } catch (Exception $e) {
-        // Log error but don't stop if mail was sent
+        $pdo->exec("CREATE TABLE IF NOT EXISTS billing_calendar (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            month INT NOT NULL,
+            year INT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            description VARCHAR(255),
+            UNIQUE KEY unique_month_year (month, year)
+        )");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS club_subscriptions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            player_id INT NOT NULL,
+            month INT NOT NULL,
+            year INT NOT NULL,
+            amount DECIMAL(15,2) DEFAULT 20000.00,
+            status ENUM('Pendiente', 'Pagado') DEFAULT 'Pendiente',
+            payment_id INT DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        )");
+    } catch (\Throwable $t) {
+        // Silencioso o log error
     }
 
-    if ($mailSent) {
-        success('Mensaje enviado correctamente');
+    // 2. Corregir pagos antiguos sin año (Migración de datos)
+    try {
+        $pdo->exec("UPDATE payments SET year = YEAR(fecha) WHERE year IS NULL OR year = 0");
+    } catch (\Throwable $t) {}
+
+    $month = (int)date('n');
+    $year = (int)date('Y');
+    
+    // Asegurar que el mes actual existe en el calendario
+    $stmt = $pdo->prepare("INSERT IGNORE INTO billing_calendar (month, year, is_active, description) VALUES (?, ?, 1, 'Generado automáticamente')");
+    $stmt->execute([$month, $year]);
+}
+
+function isCompetitive($categoryName) {
+    if (!$categoryName) return false;
+    $n = strtolower($categoryName);
+    if (strpos($n, 'escuela') !== false) return false;
+    if (strpos($n, 'primera') !== false) return true;
+    
+    // Buscar "Sub-13" o similar
+    if (preg_match('/sub[\s-]*(\d+)/', $n, $matches)) {
+        if ((int)$matches[1] >= 13) return true;
+    }
+    return false;
+}
+
+function getPlayerDebtDetails($pdo, $playerId) {
+    // 1. Obtener datos del jugador
+    $stmt = $pdo->prepare("SELECT * FROM players WHERE id = ?");
+    $stmt->execute([$playerId]);
+    $player = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$player) return null;
+
+    $category = $player['category'];
+    $isComp = isCompetitive($category);
+    $sponsorship = $player['sponsorship'] ?? 'none';
+    $customFee = $player['custom_fee'] ?? null;
+    $regDate = $player['registrationDate'] ?? date('Y-m-d');
+    
+    // Extraer año y mes de registro
+    $regTimestamp = strtotime($regDate);
+    $regYear = (int)date('Y', $regTimestamp);
+    $regMonth = (int)date('n', $regTimestamp);
+
+    $currentYear = (int)date('Y');
+    $currentMonth = (int)date('n');
+
+    $details = [
+        'monthly_debt' => 0,
+        'subscription_debt' => 0,
+        'inscription_debt' => 0,
+        'has_debt' => false,
+        'total_debt' => 0
+    ];
+
+    if ($sponsorship === 'full') return $details;
+
+    // 2. Obtener meses activos
+    $stmtMonths = $pdo->prepare("
+        SELECT month, year FROM billing_calendar 
+        WHERE is_active = 1 
+        AND (year > ? OR (year = ? AND month >= ?))
+        AND (year < ? OR (year = ? AND month <= ?))
+        ORDER BY year ASC, month ASC
+    ");
+    $stmtMonths->execute([$regYear, $regYear, $regMonth, $currentYear, $currentYear, $currentMonth]);
+    $activeMonths = $stmtMonths->fetchAll(PDO::FETCH_ASSOC);
+
+    if ($isComp) {
+        // COMPETITIVOS: Suscripción Club
+        $fee = (float)($customFee ?? 20000);
+        if ($sponsorship === 'partial') $fee = $fee / 2;
+
+        foreach ($activeMonths as $mRecord) {
+            $m = $mRecord['month'];
+            $y = $mRecord['year'];
+            
+            // Prioridad a club_subscriptions, luego a payments
+            $stmtDebt = $pdo->prepare("SELECT COUNT(*) FROM club_subscriptions WHERE player_id = ? AND month = ? AND year = ? AND status = 'Pagado'");
+            $stmtDebt->execute([$playerId, $m, $y]);
+            if ($stmtDebt->fetchColumn() == 0) {
+                $stmtP = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE jugadorId = ? AND mes = ? AND tipo = 'Suscripción Club' AND year = ?");
+                $stmtP->execute([$playerId, $m, $y]);
+                if ($stmtP->fetchColumn() == 0) {
+                    $details['subscription_debt'] += $fee;
+                    $details['has_debt'] = true;
+                }
+            }
+        }
     } else {
-        response('error', 'No se pudo enviar el correo, pero el mensaje fue guardado en la base de datos.');
+        // ESCUELA: Inscripción (anual) + Mensualidad
+        $monthlyFee = (float)($customFee ?? 50000);
+        if ($sponsorship === 'partial') $monthlyFee = $monthlyFee / 2;
+
+        if ($sponsorship === 'none') {
+            // Inscripción anual (asumimos $50k si no se especifica, pero aquí solo checkeamos existencia para el estado)
+            $stmtIns = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE jugadorId = ? AND tipo = 'Inscripción' AND year = ?");
+            $stmtIns->execute([$playerId, $currentYear]);
+            if ($stmtIns->fetchColumn() == 0) {
+                $details['inscription_debt'] = 50000; // Valor de referencia
+                $details['has_debt'] = true;
+            }
+        }
+
+        foreach ($activeMonths as $mRecord) {
+            $m = $mRecord['month'];
+            $y = $mRecord['year'];
+            
+            $stmtP = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE jugadorId = ? AND mes = ? AND tipo = 'Mensualidad' AND year = ?");
+            $stmtP->execute([$playerId, $m, $y]);
+            if ($stmtP->fetchColumn() == 0) {
+                $details['monthly_debt'] += $monthlyFee;
+                $details['has_debt'] = true;
+            }
+        }
+    }
+
+    $details['total_debt'] = $details['monthly_debt'] + $details['subscription_debt'] + $details['inscription_debt'];
+    return $details;
+}
+
+function recalculatePlayerStatus($pdo, $playerId) {
+    $details = getPlayerDebtDetails($pdo, $playerId);
+    if (!$details) return 'Pendiente';
+    
+    $newStatus = $details['has_debt'] ? 'Pendiente' : 'Al Día';
+    $qty = $details['has_debt'] ? 1 : 0; // Podríamos ser más específicos con "En Mora" si tiene > 2 meses
+
+    $upd = $pdo->prepare("UPDATE players SET paymentStatus = ? WHERE id = ?");
+    $upd->execute([$newStatus, $playerId]);
+    return $newStatus;
+}
+
+function recalculateAllPlayersStatus($pdo) {
+    $stmt = $pdo->query("SELECT id FROM players WHERE status = 'Aceptado'");
+    $players = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($players as $id) {
+        recalculatePlayerStatus($pdo, $id);
     }
 }
 
+function handleContact($pdo, $input) {
+    if (!$input) response('error', 'Datos de contacto no recibidos');
+    $stmt = $pdo->prepare("INSERT INTO contact_messages (name, email, subject, message) VALUES (?, ?, ?, ?)");
+    $stmt->execute([
+        $input['name'] ?? 'Anonimo', 
+        $input['email'] ?? '', 
+        $input['subject'] ?? 'Consulta Web', 
+        $input['message'] ?? ''
+    ]);
+    success("Mensaje enviado correctamente");
+}
+
 function handleCrud($pdo, $table, $method, $id, $input) {
-    try {
-        if ($method === 'GET') {
-            if ($id) {
-                $stmt = $pdo->prepare("SELECT * FROM $table WHERE id = ?");
-                $stmt->execute([$id]);
-                $res = $stmt->fetch();
-                echo json_encode($res ? $res : []);
-            } else {
-                // Soporte para filtros dinámicos (ej: ?action=players&parentEmail=...)
-                $filters = $_GET;
-                unset($filters['action'], $filters['id'], $filters['_method']);
-                
-                if (empty($filters)) {
-                    $stmt = $pdo->query("SELECT * FROM $table ORDER BY id DESC");
-                    echo json_encode($stmt->fetchAll());
-                } else {
-                    // Obtener columnas reales para filtrar
-                    $stmtCols = $pdo->query("DESCRIBE $table");
-                    $validColumns = $stmtCols->fetchAll(PDO::FETCH_COLUMN);
-
-                    $where = [];
-                    $values = [];
-                    foreach ($filters as $key => $val) {
-                        $columnToUse = $key;
-                        // Mapeo inteligente para el portal de padres
-                        if ($key === 'parentEmail' && !in_array('parentEmail', $validColumns) && in_array('email', $validColumns)) {
-                            $columnToUse = 'email';
-                        }
-                        
-                        if (in_array($columnToUse, $validColumns)) {
-                            $where[] = "`$columnToUse` = ?";
-                            $values[] = $val;
-                        }
-                    }
-                    
-                    if (empty($where)) {
-                        $stmt = $pdo->query("SELECT * FROM $table ORDER BY id DESC");
-                    } else {
-                        $sql = "SELECT * FROM $table WHERE " . implode(' AND ', $where) . " ORDER BY id DESC";
-                        $stmt = $pdo->prepare($sql);
-                        $stmt->execute($values);
-                    }
-                    echo json_encode($stmt->fetchAll());
-                }
-            }
-        } 
-        elseif ($method === 'POST') {
-            if (!$input) response('error', 'No se recibieron datos (JSON inválido)');
-            
-            // FILTRADO DINÁMICO: Obtener columnas reales de la tabla
-            $stmtCols = $pdo->query("DESCRIBE $table");
-            $validColumns = $stmtCols->fetchAll(PDO::FETCH_COLUMN);
-            
-            // Limpiar campos que no deben ir en el INSERT
-            unset($input['id']);
-            
-            $filteredData = [];
-            foreach ($input as $key => $value) {
-                $columnToUse = $key;
-                // Mapeo inteligente para el portal de padres al guardar
-                if ($key === 'parentEmail' && !in_array('parentEmail', $validColumns) && in_array('email', $validColumns)) {
-                    $columnToUse = 'email';
-                }
-
-                if (in_array($columnToUse, $validColumns)) {
-                    $filteredData[$columnToUse] = $value;
-                }
-            }
-            
-            if (empty($filteredData)) response('error', 'No hay datos válidos para insertar');
-
-            $keys = array_keys($filteredData);
-            $fields = implode(',', array_map(function($k) { return "`$k`"; }, $keys));
-            $placeholders = implode(',', array_fill(0, count($keys), '?'));
-            
-            $stmt = $pdo->prepare("INSERT INTO $table ($fields) VALUES ($placeholders)");
-            $stmt->execute(array_values($filteredData));
-            success("Registro creado correctamente");
-        } 
-        elseif ($method === 'PUT') {
-            if (!$id) response('error', 'ID requerido para actualizar');
-            if (!$input) response('error', 'No se recibieron datos para actualizar');
-            
-            // Obtener columnas reales para filtrar
-            $stmtCols = $pdo->query("DESCRIBE $table");
-            $validColumns = $stmtCols->fetchAll(PDO::FETCH_COLUMN);
-            
-            unset($input['id']);
-            
-            $filteredData = [];
-            foreach ($input as $key => $value) {
-                if (in_array($key, $validColumns)) {
-                    $filteredData[$key] = $value;
-                }
-            }
-            
-            if (empty($filteredData)) response('error', 'No hay datos válidos para actualizar');
-            
-            $fields = "";
-            $params = [];
-            foreach ($filteredData as $key => $val) { 
-                $fields .= "`$key` = ?,"; 
-                $params[] = $val;
-            }
-            $fields = rtrim($fields, ',');
-            
-            $stmt = $pdo->prepare("UPDATE $table SET $fields WHERE id = ?");
-            $params[] = $id;
-            
-            $stmt->execute($params);
-            success("Registro actualizado correctamente");
-        } 
-        elseif ($method === 'DELETE') {
-            if (!$id) response('error', 'ID requerido para eliminar');
-            
-            // ELIMINACIÓN EN CASCADA (Padre -> Jugador)
-            // Si el motor de BD no tiene el trigger, lo forzamos por código
-            if ($table === 'users') {
-                $stmtEmail = $pdo->prepare("SELECT email FROM users WHERE id = ?");
-                $stmtEmail->execute([$id]);
-                $userRecord = $stmtEmail->fetch(PDO::FETCH_ASSOC);
-                
-                if ($userRecord && !empty($userRecord['email'])) {
-                    // Borramos los jugadores asociados a este correo 
-                    // (Los pagos se borrarán solos gracias a la regla de la BDD de pagos)
-                    $stmtPlayers = $pdo->prepare("DELETE FROM players WHERE email = ?");
-                    $stmtPlayers->execute([$userRecord['email']]);
-                }
-            }
-
-            $stmt = $pdo->prepare("DELETE FROM $table WHERE id = ?");
+    if ($method === 'GET') {
+        if ($id) {
+            $stmt = $pdo->prepare("SELECT * FROM `$table` WHERE id = ?");
             $stmt->execute([$id]);
-            success("Registro eliminado");
+            $res = $stmt->fetch(PDO::FETCH_ASSOC);
+            echo json_encode($res ?: []);
+        } else {
+            $stmt = $pdo->query("SELECT * FROM `$table` ORDER BY id DESC");
+            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
         }
-    } catch (PDOException $e) {
-        http_response_code(400); // Bad Request
-        response('error', 'Error de Base de Datos: ' . $e->getMessage());
+    } elseif ($method === 'POST') {
+        if (!$input) response('error', 'No hay datos para insertar');
+        $keys = array_keys($input);
+        // Filtrar campos que no pertenezcan al método (como _method)
+        $keys = array_filter($keys, function($k) { return $k !== '_method' && $k !== 'id'; });
+        
+        $fields = implode(',', array_map(function($k) { return "`$k`"; }, $keys));
+        $placeholders = implode(',', array_fill(0, count($keys), '?'));
+        
+        $stmt = $pdo->prepare("INSERT INTO `$table` ($fields) VALUES ($placeholders)");
+        $data = [];
+        foreach($keys as $k) $data[] = $input[$k];
+        
+        $stmt->execute($data);
+        success("Registro creado exitosamente");
+    } elseif ($method === 'PUT' || $method === 'PATCH') {
+        if (!$id) response('error', 'ID requerido para actualizar');
+        if (!$input) response('error', 'No hay datos para actualizar');
+        
+        $fields = [];
+        $values = [];
+        foreach ($input as $key => $val) {
+            if ($key !== 'id' && $key !== '_method') {
+                $fields[] = "`$key` = ?";
+                $values[] = $val;
+            }
+        }
+        
+        if (empty($fields)) response('error', 'No se enviaron campos válidos');
+        
+        $values[] = $id;
+        $sql = "UPDATE `$table` SET " . implode(', ', $fields) . " WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($values);
+        success("Registro actualizado exitosamente");
+    } elseif ($method === 'DELETE') {
+        if (!$id) response('error', 'ID requerido para eliminar');
+        $stmt = $pdo->prepare("DELETE FROM `$table` WHERE id = ?");
+        $stmt->execute([$id]);
+        success("Registro eliminado exitosamente");
     }
 }
 
 function handlePayments($pdo, $method, $id, $input) {
+    // Asegurar que la columna year existe en payments
+    try {
+        $pdo->exec("ALTER TABLE payments ADD COLUMN IF NOT EXISTS year INT DEFAULT NULL");
+    } catch (\Throwable $t) {
+        try { $pdo->exec("ALTER TABLE payments ADD year INT DEFAULT NULL"); } catch (\Throwable $t2) {}
+    }
+
     if ($method === 'POST') {
         if (!isset($input['jugadorId'])) {
-            // Intentar mapear si viene de un CRUD genérico antiguo
             if (isset($input['player_id'])) $input['jugadorId'] = $input['player_id'];
         }
 
-        // Lógica especial para sincronizar con club_subscriptions
+        $paymentYear = $input['year'] ?? (int)date('Y');
+
         if (isset($input['tipo']) && $input['tipo'] === 'Suscripción Club') {
             $pdo->beginTransaction();
             try {
-                // 1. Insertar en payments (usando el motor de handleCrud minimizado)
-                $stmtP = $pdo->prepare("INSERT INTO payments (jugadorId, tipo, mes, valor, metodo, fecha) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmtP = $pdo->prepare("INSERT INTO payments (jugadorId, tipo, mes, year, valor, metodo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $stmtP->execute([
                     $input['jugadorId'],
                     $input['tipo'],
                     $input['mes'] ?? date('n'),
+                    $paymentYear,
                     $input['valor'] ?? 20000,
                     $input['metodo'] ?? 'Efectivo',
                     $input['fecha'] ?? date('Y-m-d')
                 ]);
                 $paymentId = $pdo->lastInsertId();
 
-                // 2. Actualizar o Insertar en club_subscriptions
-                $year = date('Y');
                 $month = $input['mes'] ?? date('n');
                 
                 $stmtS = $pdo->prepare("UPDATE club_subscriptions SET status = 'Pagado', payment_id = ? WHERE player_id = ? AND month = ? AND year = ?");
-                $stmtS->execute([$paymentId, $input['jugadorId'], $month, $year]);
+                $stmtS->execute([$paymentId, $input['jugadorId'], $month, $paymentYear]);
                 
                 if ($stmtS->rowCount() === 0) {
                      $stmtInsS = $pdo->prepare("INSERT INTO club_subscriptions (player_id, month, year, amount, status, payment_id) VALUES (?, ?, ?, ?, 'Pagado', ?)");
-                     $stmtInsS->execute([$input['jugadorId'], $month, $year, $input['valor'] ?? 20000, $paymentId]);
+                     $stmtInsS->execute([$input['jugadorId'], $month, $paymentYear, $input['valor'] ?? 20000, $paymentId]);
                 }
 
                 $pdo->commit();
-                success("Pago de suscripción registrado y sincronizado correctamente");
+                recalculatePlayerStatus($pdo, $input['jugadorId']);
+                success("Pago de suscripción registrado correctamente");
             } catch (Exception $e) {
-                $pdo->rollBack();
-                response('error', 'Error al sincronizar pago de suscripción: ' . $e->getMessage());
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                response('error', 'Error al sincronizar pago: ' . $e->getMessage());
             }
         } else {
-             handleCrud($pdo, 'payments', $method, $id, $input);
+             try {
+                $filteredData = [
+                    'jugadorId' => $input['jugadorId'],
+                    'tipo' => $input['tipo'],
+                    'mes' => $input['mes'] ?? date('n'),
+                    'year' => $paymentYear,
+                    'valor' => $input['valor'],
+                    'metodo' => $input['metodo'] ?? 'Efectivo',
+                    'fecha' => $input['fecha'] ?? date('Y-m-d')
+                ];
+
+                $keys = array_keys($filteredData);
+                $fields = implode(',', array_map(function($k) { return "`$k`"; }, $keys));
+                $placeholders = implode(',', array_fill(0, count($keys), '?'));
+                
+                $stmt = $pdo->prepare("INSERT INTO payments ($fields) VALUES ($placeholders)");
+                $stmt->execute(array_values($filteredData));
+                
+                if (isset($input['jugadorId'])) {
+                    recalculatePlayerStatus($pdo, $input['jugadorId']);
+                }
+                
+                success("Pago registrado correctamente");
+             } catch (Exception $e) {
+                response('error', "Error al registrar pago: " . $e->getMessage());
+             }
         }
+    } elseif ($method === 'GET' && isset($_GET['jugadorId'])) {
+        $stmt = $pdo->prepare("SELECT * FROM payments WHERE jugadorId = ? ORDER BY year DESC, mes DESC, fecha DESC");
+        $stmt->execute([$_GET['jugadorId']]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        exit;
     } else {
         handleCrud($pdo, 'payments', $method, $id, $input);
     }
 }
 
+
 function handlePlayers($pdo, $method, $id, $input) {
     try {
         if ($method === 'PATCH' || $method === 'POST' || $method === 'PUT') {
-            // Asegurar que las columnas de identificación existen (Migración automática silenciosa)
+            // Asegurar que las columnas existen
             try {
                 $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS dni VARCHAR(50) DEFAULT NULL");
                 $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS documentType VARCHAR(50) DEFAULT NULL");
+                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS sponsorship ENUM('none', 'partial', 'full') DEFAULT 'none'");
+                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS custom_fee DECIMAL(15,2) DEFAULT NULL");
             } catch (\Throwable $t) { 
-                // Silencioso, probablemente el servidor no soporta IF NOT EXISTS o ya existen
                 try {
                     $pdo->exec("ALTER TABLE players ADD dni VARCHAR(50) DEFAULT NULL");
                     $pdo->exec("ALTER TABLE players ADD documentType VARCHAR(50) DEFAULT NULL");
+                    $pdo->exec("ALTER TABLE players ADD sponsorship ENUM('none', 'partial', 'full') DEFAULT 'none'");
+                    $pdo->exec("ALTER TABLE players ADD custom_fee DECIMAL(15,2) DEFAULT NULL");
                 } catch (\Throwable $t2) {}
             }
         }
@@ -359,41 +444,33 @@ function handlePlayers($pdo, $method, $id, $input) {
         if ($method === 'PATCH') {
             if (!$id) response('error', 'ID requerido');
             
-            if (isset($input['status'])) {
-                $stmt = $pdo->prepare("UPDATE players SET status = ? WHERE id = ?");
-                $stmt->execute([$input['status'], $id]);
-                success("Estado de registro actualizado");
-            } 
-            elseif (isset($input['dni'])) {
-                $stmt = $pdo->prepare("UPDATE players SET dni = ? WHERE id = ?");
-                $stmt->execute([$input['dni'], $id]);
-                success("Documento de identidad actualizado");
-            }
-            elseif (isset($input['paymentStatus'])) {
-                // Asegurar que la columna existe (Migración automática silenciosa)
-                try {
-                    $pdo->exec("ALTER TABLE players ADD paymentStatus VARCHAR(50) DEFAULT 'Pendiente'");
-                } catch (\Throwable $t) { 
-                    // Silencioso, probablemente ya existe
-                }
-
-                $stmt = $pdo->prepare("UPDATE players SET paymentStatus = ? WHERE id = ?");
-                $stmt->execute([$input['paymentStatus'], $id]);
-                
-                if ($stmt->rowCount() > 0) {
-                    success("Estado de pago actualizado correctamente");
-                } else {
-                    response('error', "No se encontró el jugador con ID: $id o el estado es el mismo.");
+            $fields = [];
+            $params = [];
+            
+            // Mapeo de campos permitidos para PATCH
+            $allowed = ['status', 'dni', 'paymentStatus', 'parentEmail', 'sponsorship', 'custom_fee'];
+            foreach ($allowed as $key) {
+                if (isset($input[$key])) {
+                    $col = ($key === 'parentEmail') ? 'email' : $key;
+                    $fields[] = "`$col` = ?";
+                    $params[] = $input[$key];
                 }
             }
-            elseif (isset($input['parentEmail'])) {
-                $stmt = $pdo->prepare("UPDATE players SET email = ? WHERE id = ?");
-                $stmt->execute([$input['parentEmail'], $id]);
-                success("Correo del acudiente actualizado correctamente");
+            
+            if (empty($fields)) response('error', 'No se proporcionó ningún campo para actualizar');
+            
+            $sql = "UPDATE players SET " . implode(', ', $fields) . " WHERE id = ?";
+            $params[] = $id;
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            
+            // Si se cambió algo financiero, recalcular estado
+            if (isset($input['sponsorship']) || isset($input['custom_fee']) || isset($input['category'])) {
+                recalculatePlayerStatus($pdo, $id);
             }
-            else {
-                response('error', 'No se proporcionó ningún campo para actualizar');
-            }
+            
+            success("Jugador actualizado correctamente");
         } 
         else {
             handleCrud($pdo, 'players', $method, $id, $input);
@@ -520,42 +597,28 @@ function handlePazSalvo($pdo, $method, $id, $input) {
         $playerId = $input['player_id'] ?? null;
         if (!$playerId) response('error', 'ID de jugador requerido');
         
-        // 1. Obtener datos del jugador y su categoría
-        $stmtP = $pdo->prepare("SELECT * FROM players WHERE id = ?");
-        $stmtP->execute([$playerId]);
-        $player = $stmtP->fetch(PDO::FETCH_ASSOC);
-        if (!$player) response('error', 'Jugador no encontrado');
+        // 1. Obtener deudas reales del motor centralizado
+        $debt = getPlayerDebtDetails($pdo, $playerId);
+        if (!$debt) response('error', 'Jugador no encontrado');
         
-        // 2. Calcular Deudas
-        // a) Mensualidades pendientes (Lógica simplificada por ahora: buscar pagos tipo 'Mensualidad' faltantes)
-        // En una implementación real, esto compararía con meses activos en billing_calendar
-        $stmtM = $pdo->prepare("SELECT SUM(valor) as pagado FROM payments WHERE jugadorId = ? AND tipo = 'Mensualidad'");
-        $stmtM->execute([$playerId]);
-        // Nota: Esta lógica requiere saber cuántos meses debería haber pagado.
-        // Por simplicidad para el MVP, asumiremos que se envía la deuda calculada o se basa en un cálculo de meses activos.
-        $monthlyDebt = $input['monthly_debt'] ?? 0; 
+        $monthlyDebt = $debt['monthly_debt'];
+        $inscriptionDebt = $debt['inscription_debt'];
+        $subscriptionDebt = $debt['subscription_debt'];
         
-        // b) Suscripción Club ($20.000 x meses pendientes) - SOLO PARA COMPETITIVOS
-        $isEscuela = (strpos(strtolower($player['category']), 'escuela') !== false);
-        
-        $subscriptionDebt = 0;
-        if (!$isEscuela) {
-            $stmtS = $pdo->prepare("SELECT COUNT(*) as pendientes FROM club_subscriptions WHERE player_id = ? AND status = 'Pendiente'");
-            $stmtS->execute([$playerId]);
-            $subsPendientes = $stmtS->fetch(PDO::FETCH_ASSOC)['pendientes'];
-            $subscriptionDebt = $subsPendientes * 20000;
-        }
-        
-        // c) Convenio
+        // 2. Convenio / Beca (Valor Informativo)
         $stmtC = $pdo->prepare("SELECT discount_amount FROM player_conventions WHERE player_id = ? AND active = 1 ORDER BY id DESC LIMIT 1");
         $stmtC->execute([$playerId]);
         $convention = $stmtC->fetch(PDO::FETCH_ASSOC);
-        $discount = $convention ? $convention['discount_amount'] : 0;
+        $discount = $convention ? (float)$convention['discount_amount'] : 0;
         
-        // Valor base: 200k para competitivos, 0 para Escuela
+        // 3. Valor base derecho Paz y Salvo
+        $stmtP = $pdo->prepare("SELECT category FROM players WHERE id = ?");
+        $stmtP->execute([$playerId]);
+        $cat = $stmtP->fetchColumn();
+        $isEscuela = (strpos(strtolower($cat), 'escuela') !== false);
         $baseValue = $isEscuela ? 0 : 200000;
         
-        $totalToPay = $monthlyDebt + $subscriptionDebt + ($baseValue - $discount);
+        $totalToPay = $monthlyDebt + $inscriptionDebt + $subscriptionDebt + ($baseValue - $discount);
         if ($totalToPay < 0) $totalToPay = 0;
 
         // Si es solo para CÁLCULO (sin guardar)
@@ -564,11 +627,12 @@ function handlePazSalvo($pdo, $method, $id, $input) {
                 'status' => 'success',
                 'data' => [
                     'monthly_debt' => $monthlyDebt,
+                    'inscription_debt' => $inscriptionDebt,
                     'subscription_debt' => $subscriptionDebt,
                     'base_value' => $baseValue,
                     'convention_discount' => $discount,
                     'total_to_pay' => $totalToPay,
-                    'is_escuela' => (strpos(strtolower($player['category']), 'escuela') !== false)
+                    'is_escuela' => $isEscuela
                 ]
             ]);
             exit;
@@ -579,11 +643,11 @@ function handlePazSalvo($pdo, $method, $id, $input) {
             (player_id, monthly_debt, subscription_debt, base_value, convention_discount, total_to_pay, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?)");
         
-        $status = (strpos(strtolower($player['category']), 'escuela') !== false && $totalToPay <= 0) ? 'Generado' : 'Pendiente';
+        $status = ($isEscuela && $totalToPay <= 0) ? 'Generado' : 'Pendiente';
         
         $stmtIns->execute([
             $playerId, 
-            $monthlyDebt, 
+            $monthlyDebt + $inscriptionDebt, // Guardamos la suma en monthly_debt por compatibilidad de esquema
             $subscriptionDebt, 
             $baseValue, 
             $discount, 

@@ -26,6 +26,7 @@ const playerHistory = ref([]);
 const paymentForm = ref({
     tipo: 'Mensualidad',
     mes: new Date().getMonth() + 1,
+    year: new Date().getFullYear(), // Añadido campo año
     valor: 50000,
     metodo: 'Efectivo',
     fecha: new Date().toISOString().split('T')[0]
@@ -42,12 +43,19 @@ watch(() => paymentForm.value.tipo, (newTipo) => {
 
 onMounted(async () => {
     isLoading.value = true;
-    await Promise.all([
-        playersStore.initPlayers(),
-        categoryStore.fetchCategories(),
-        paymentsStore.fetchSubscriptions()
-    ]);
-    isLoading.value = false;
+    try {
+        await paymentsStore.syncFinances();
+        await Promise.all([
+            playersStore.initPlayers(),
+            categoryStore.fetchCategories(),
+            paymentsStore.fetchSubscriptions(),
+            paymentsStore.fetchAllPayments()
+        ]);
+    } catch (e) {
+        console.error("Error sincronizando finanzas:", e);
+    } finally {
+        isLoading.value = false;
+    }
 });
 
 // Obtener categorías únicas presentes en la lista de jugadores
@@ -96,49 +104,71 @@ const isCompetitive = (categoryName) => {
 
 
 const stats = computed(() => {
-    const paidList = payments.value.filter(p => p.status === 'Al Día');
-    const total = payments.value.length;
-    // Ingreso previsto: lo que se debería recaudar basándose en las categorías de los jugadores
-    const expected = payments.value.reduce((acc, p) => acc + p.amountValue, 0);
-    // Recaudado: suma de los montos de los que están "Al Día"
-    const collected = paidList.reduce((acc, p) => acc + p.amountValue, 0);
+    const activePlayers = playersStore.players.filter(p => p.status === 'Aceptado' || p.status === 'Pendiente');
+    const allHistorical = paymentsStore.historicalPayments;
+    
+    // 1. Ingreso Mensual Teórico (Solo para comparar con la meta del mes)
+    const expectedMonthly = activePlayers.reduce((acc, p) => {
+        let base = isCompetitive(p.category) ? 20000 : 50000;
+        if (p.sponsorship === 'full') return acc;
+        if (p.sponsorship === 'partial') return acc + (base / 2);
+        if (p.custom_fee) return acc + parseFloat(p.custom_fee);
+        return acc + base;
+    }, 0);
+
+    // 2. Recaudado Real (Todo lo que ha entrado a la caja del club históricamente)
+    const totalCajaGlobal = allHistorical.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
+
+    // 3. Desglose para etiquetas
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    
+    // Cuánto de esa caja corresponde a mensualidades de este mes
+    const collectedMonthly = allHistorical.filter(p => 
+        (p.tipo === 'Mensualidad' || p.tipo === 'Suscripción Club') && 
+        parseInt(p.mes) === currentMonth && 
+        parseInt(p.year) === currentYear
+    ).reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
+
+    // Cuánto de esa caja corresponde a inscripciones de este año
+    const collectedInscriptions = allHistorical.filter(p => 
+        p.tipo === 'Inscripción' && parseInt(p.year) === currentYear
+    ).reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
 
     return {
-        paid: paidList.length,
-        pending: total - paidList.length,
-        totalAmount: expected,
-        collected: collected
+        paid: activePlayers.filter(p => p.paymentStatus === 'Al Día').length,
+        pending: activePlayers.filter(p => p.paymentStatus !== 'Al Día').length,
+        totalExpected: expectedMonthly,
+        collectedMonthly: collectedMonthly,
+        collectedInscriptions: collectedInscriptions,
+        totalReal: totalCajaGlobal,
+        monthlyDebt: Math.max(0, expectedMonthly - collectedMonthly) // Nueva deuda calculada correctamente
     };
 });
 
-const updateStatus = async (id, newStatus) => {
-    // Si marcamos como Al Día, abrimos el formulario de registro detallado
-    if (newStatus === 'Al Día') {
-        const player = payments.value.find(p => p.id === id);
-        selectedPlayer.value = player;
+const showDebtModal = ref(false);
+const debtInfo = ref(null);
 
-        // Detectar tipo y valor base automáticamente según categoría
-        const isComp = isCompetitive(player.category);
-        paymentForm.value.tipo = isComp ? 'Suscripción Club' : 'Mensualidad';
-        paymentForm.value.valor = isComp ? 20000 : 50000;
-
-        showRegisterModal.value = true;
-        return;
-    }
-
-    successMessage.value = '';
-    errorMessage.value = '';
-    isProcessing.value = true;
-
+const viewDebt = async (player) => {
+    selectedPlayer.value = player;
+    isLoading.value = true;
     try {
-        await playersStore.updatePaymentStatus(id, newStatus);
-        successMessage.value = '¡Estado de pago actualizado!';
-        await playersStore.initPlayers();
-        setTimeout(() => successMessage.value = '', 3000);
-    } catch (e) {
-        errorMessage.value = 'Error: ' + (e.message || 'Error al actualizar');
+        const result = await paymentsStore.calculatePazSalvoDebt(player.id);
+        debtInfo.value = result;
+        showDebtModal.value = true;
+    } catch (error) {
+        alert('Error al calcular la deuda detallada: ' + error.message);
     } finally {
-        isProcessing.value = false;
+        isLoading.value = false;
+    }
+};
+
+const getStatusColor = (status) => {
+    switch (status) {
+        case 'Al Día': return { bg: '#e8f5e9', text: '#2e7d32' };
+        case 'Pendiente': return { bg: '#fff3e0', text: '#ef6c00' };
+        case 'En Mora': return { bg: '#ffebee', text: '#c62828' };
+        default: return { bg: '#f5f5f5', text: '#757575' };
     }
 };
 
@@ -154,16 +184,17 @@ const confirmPaymentRegistration = async () => {
 
         const ok = await paymentsStore.registerPayment(payload);
         if (ok) {
-            // Always update the player's general status to 'Al Día' after a successful payment registration
-            await playersStore.updatePaymentStatus(selectedPlayer.value.id, 'Al Día');
-
+            // Ya no forzamos el estado 'Al Día' manualmente aquí.
+            // El backend ahora recalcula el estado real basado en TODAS las deudas.
+            
             successMessage.value = '✅ Pago registrado con éxito';
             showRegisterModal.value = false;
 
-            // Recargar datos
+            // Recargar datos (initPlayers traerá el nuevo estado recalculado por el servidor)
             await Promise.all([
                 playersStore.initPlayers(),
-                paymentsStore.fetchSubscriptions()
+                paymentsStore.fetchSubscriptions(),
+                paymentsStore.fetchAllPayments()
             ]);
         }
     } catch (e) {
@@ -178,6 +209,31 @@ const openHistory = async (payment) => {
     selectedPlayer.value = payment;
     playerHistory.value = await paymentsStore.fetchPaymentsByPlayer(payment.id);
     showHistoryModal.value = true;
+};
+
+const handleRemovePayment = async (paymentId) => {
+    if (!confirm('¿Estás seguro de eliminar este registro de pago? Esto afectará el estado financiero del jugador.')) return;
+    
+    try {
+        isProcessing.value = true;
+        const res = await paymentsStore.deletePayment(paymentId);
+        if (res) {
+            // Actualizar el historial localmente
+            playerHistory.value = playerHistory.value.filter(p => p.id !== paymentId);
+            // Sincronizar todo para recalcular estados
+            await Promise.all([
+                playersStore.initPlayers(),
+                paymentsStore.fetchSubscriptions(),
+                paymentsStore.fetchAllPayments()
+            ]);
+            successMessage.value = 'Pago eliminado correctamente';
+        }
+    } catch (e) {
+        errorMessage.value = 'Error al eliminar el pago';
+    } finally {
+        isProcessing.value = false;
+        setTimeout(() => successMessage.value = '', 3000);
+    }
 };
 
 const exportReceipt = (payment) => {
@@ -314,11 +370,6 @@ const exportReceipt = (payment) => {
     printWindow.document.close();
 };
 
-const getStatusColor = (status) => {
-    if (status === 'Al Día') return { bg: 'rgba(46, 204, 113, 0.1)', text: '#27ae60' };
-    if (status === 'Pendiente') return { bg: 'rgba(243, 156, 18, 0.1)', text: '#d35400' };
-    return { bg: 'rgba(231, 76, 60, 0.1)', text: '#c0392b' };
-};
 </script>
 
 <template>
@@ -351,37 +402,42 @@ const getStatusColor = (status) => {
         </div>
 
         <div class="admin-stats-grid"
-            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-            <div class="stat-card">
-                <div class="stat-icon news"><i class="fa-solid fa-money-bills"></i></div>
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+            
+            <div class="stat-card" style="border-left: 4px solid #3498db;">
                 <div class="stat-info">
-                    <h3>Ingreso Previsto</h3>
-                    <div class="stat-value">${{ stats.totalAmount.toLocaleString() }}</div>
+                    <h3 style="font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase;">Mensualidad Mes</h3>
+                    <div class="stat-value" style="font-size: 1.4rem; font-weight: 800;">${{ stats.collectedMonthly.toLocaleString() }}</div>
+                    <small style="color: #e74c3c; font-weight: 700;">Deuda: ${{ stats.monthlyDebt.toLocaleString() }}</small>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon sponsors" style="background: rgba(46, 204, 113, 0.1); color: #27ae60;">
-                    <i class="fa-solid fa-hand-holding-dollar"></i>
-                </div>
+
+            <div class="stat-card" style="border-left: 4px solid #1fa774;">
                 <div class="stat-info">
-                    <h3>Recaudado Real</h3>
-                    <div class="stat-value" style="color: #27ae60;">${{ stats.collected.toLocaleString() }}</div>
+                    <h3 style="font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase;">Inscripciones Año</h3>
+                    <div class="stat-value" style="font-size: 1.4rem; font-weight: 800; color: #1fa774;">${{ stats.collectedInscriptions.toLocaleString() }}</div>
+                    <small style="color: #95a5a6;">Recaudado hoy</small>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon sponsors"><i class="fa-solid fa-clock"></i></div>
+
+            <div class="stat-card" style="border-left: 4px solid #f1c40f;">
                 <div class="stat-info">
-                    <h3>Pendientes</h3>
-                    <div class="stat-value">{{ stats.pending }}</div>
+                    <h3 style="font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase;">Total en Caja</h3>
+                    <div class="stat-value" style="font-size: 1.4rem; font-weight: 800;">${{ stats.totalReal.toLocaleString() }}</div>
+                    <small style="color: #95a5a6;">Todo lo recaudado</small>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon matches"><i class="fa-solid fa-check-double"></i></div>
+
+            <div class="stat-card" style="border-left: 4px solid #e67e22;">
                 <div class="stat-info">
-                    <h3>Al Día</h3>
-                    <div class="stat-value">{{ stats.paid }}</div>
+                    <h3 style="font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase;">Estado Jugadores</h3>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <span style="color: #27ae60; font-weight: bold;">{{ stats.paid }} Al día</span>
+                        <span style="color: #e74c3c; font-weight: bold;">{{ stats.pending }} Deben</span>
+                    </div>
                 </div>
             </div>
+
         </div>
 
         <div class="admin-table-wrapper">
@@ -408,22 +464,20 @@ const getStatusColor = (status) => {
                             </td>
                             <td>{{ payment.amount }}</td>
                             <td>
-                                <select :value="payment.status" :disabled="isProcessing"
-                                    @change="e => updateStatus(payment.id, e.target.value)" :style="{
-                                        padding: '6px 10px',
-                                        borderRadius: '6px',
-                                        fontSize: '0.85rem',
-                                        fontWeight: '700',
-                                        border: 'none',
-                                        cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                <div :style="{
+                                        padding: '6px 12px',
+                                        borderRadius: '20px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: '800',
+                                        textAlign: 'center',
+                                        display: 'inline-block',
                                         backgroundColor: getStatusColor(payment.status).bg,
                                         color: getStatusColor(payment.status).text,
-                                        opacity: isProcessing ? 0.6 : 1
+                                        border: '1px solid ' + getStatusColor(payment.status).text + '22'
                                     }">
-                                    <option value="Pendiente">Pendiente</option>
-                                    <option value="Al Día">Al Día</option>
-                                    <option value="En Mora">En Mora</option>
-                                </select>
+                                    <i class="fa-solid" :class="payment.status === 'Al Día' ? 'fa-circle-check' : 'fa-circle-exclamation'"></i>
+                                    {{ payment.status }}
+                                </div>
                             </td>
                             <td>
                                 <div class="action-btns">
@@ -431,9 +485,22 @@ const getStatusColor = (status) => {
                                         style="background: #f0f4f8; color: #2c3e50;">
                                         <i class="fa-solid fa-history"></i>
                                     </button>
+                                    <button @click="viewDebt(payment)" class="btn-action edit" title="Ver Deuda Detallada"
+                                        style="background: #fff4e5; color: #ff9800;">
+                                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                                    </button>
                                     <button @click="exportReceipt(payment)" class="btn-action edit"
                                         title="Exportar Recibo" style="background: #e6f3ef; color: #1fa774;">
                                         <i class="fa-solid fa-file-pdf"></i>
+                                    </button>
+                                    <button @click="() => { 
+                                        selectedPlayer = payment; 
+                                        const isComp = isCompetitive(payment.category);
+                                        paymentForm.tipo = isComp ? 'Suscripción Club' : 'Mensualidad';
+                                        paymentForm.valor = isComp ? 20000 : 50000;
+                                        showRegisterModal = true; 
+                                    }" class="btn-action edit" title="Registrar Nuevo Pago" style="background: var(--admin-accent); color: white;">
+                                        <i class="fa-solid fa-plus"></i>
                                     </button>
                                 </div>
                             </td>
@@ -466,7 +533,7 @@ const getStatusColor = (status) => {
                             <option value="Otro">Otro</option>
                         </select>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div class="admin-form-group">
                             <label>Mes Correspondiente</label>
                             <select v-model="paymentForm.mes" class="admin-search-input" style="width: 100%;">
@@ -477,32 +544,82 @@ const getStatusColor = (status) => {
                             </select>
                         </div>
                         <div class="admin-form-group">
+                            <label>Año Correspondiente</label>
+                            <select v-model="paymentForm.year" class="admin-search-input" style="width: 100%;">
+                                <option v-for="y in [2024, 2025, 2026]" :key="y" :value="y">{{ y }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="admin-form-group">
                             <label>Valor ($)</label>
                             <input v-model="paymentForm.valor" type="number" class="admin-search-input"
                                 style="width: 100%;">
                         </div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div class="admin-form-group">
                             <label>Fecha de Recaudo</label>
                             <input v-model="paymentForm.fecha" type="date" class="admin-search-input"
                                 style="width: 100%;">
                         </div>
-                        <div class="admin-form-group">
-                            <label>Método</label>
-                            <select v-model="paymentForm.metodo" class="admin-search-input" style="width: 100%;">
-                                <option value="Efectivo">Efectivo</option>
-                                <option value="Transferencia">Transferencia</option>
-                                <option value="Depósito">Depósito</option>
-                            </select>
-                        </div>
+                    </div>
+                    <div class="admin-form-group">
+                        <label>Método de Pago</label>
+                        <select v-model="paymentForm.metodo" class="admin-search-input" style="width: 100%;">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Depósito">Depósito</option>
+                        </select>
                     </div>
                 </div>
                 <div class="admin-modal-footer">
                     <button class="btn-admin secondary" @click="showRegisterModal = false">Cancelar</button>
                     <button class="btn-admin primary" @click="confirmPaymentRegistration" :disabled="isProcessing">
-                        {{ isProcessing ? 'Registrando...' : 'Confirmar y Marcar Al Día' }}
+                        {{ isProcessing ? 'Registrando...' : 'Confirmar Pago' }}
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Deuda Detallada -->
+        <div v-if="showDebtModal" class="admin-modal-overlay" @click.self="showDebtModal = false">
+            <div class="admin-modal" style="max-width: 500px;">
+                <div class="admin-modal-header">
+                    <h3>Estado de Cuenta: {{ selectedPlayer?.player }}</h3>
+                    <button @click="showDebtModal = false" class="close-modal-btn" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+                </div>
+                <div class="admin-modal-body" v-if="debtInfo" style="padding: 20px;">
+                    <div class="debt-breakdown" style="background: #f9f9f9; padding: 1.5rem; border-radius: 12px; border: 1px solid #efefef;">
+                        <div class="debt-item" style="display: flex; justify-content: space-between; margin-bottom: 0.8rem;">
+                            <span>Mensualidades Pendientes:</span>
+                            <strong :style="{ color: debtInfo.monthly_debt > 0 ? '#e74c3c' : '#27ae60' }">${{ debtInfo.monthly_debt.toLocaleString() }}</strong>
+                        </div>
+                        <div class="debt-item" style="display: flex; justify-content: space-between; margin-bottom: 0.8rem;">
+                            <span>Inscripciones Pendientes:</span>
+                            <strong :style="{ color: debtInfo.inscription_debt > 0 ? '#e74c3c' : '#27ae60' }">${{ (debtInfo.inscription_debt || 0).toLocaleString() }}</strong>
+                        </div>
+                        <div class="debt-item" style="display: flex; justify-content: space-between; margin-bottom: 0.8rem;">
+                            <span>Suscripción Club ($20k):</span>
+                            <strong :style="{ color: debtInfo.subscription_debt > 0 ? '#e74c3c' : '#27ae60' }">${{ debtInfo.subscription_debt.toLocaleString() }}</strong>
+                        </div>
+                        
+                        <div v-if="debtInfo.base_value > 0" class="debt-item" style="display: flex; justify-content: space-between; margin-bottom: 0.8rem;">
+                            <span>Derechos Administrativos:</span>
+                            <strong>${{ debtInfo.base_value.toLocaleString() }}</strong>
+                        </div>
+
+                        <div v-if="debtInfo.convention_discount > 0" class="debt-item" style="display: flex; justify-content: space-between; margin-bottom: 0.8rem;">
+                            <span style="color: #27ae60;">Descuento Conv./Beca:</span>
+                            <strong style="color: #27ae60;">- ${{ debtInfo.convention_discount.toLocaleString() }}</strong>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+                        <div class="debt-item total" style="display: flex; justify-content: space-between; font-size: 1.2rem; color: #e74c3c; font-weight: 800;">
+                            <span>TOTAL DEUDA:</span>
+                            <strong>${{ debtInfo.total_to_pay.toLocaleString() }}</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-modal-footer">
+                    <button @click="showDebtModal = false" class="btn-admin primary" style="width: 100%;">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -522,11 +639,12 @@ const getStatusColor = (status) => {
                         <table class="admin-table" style="font-size: 0.9rem;">
                             <thead>
                                 <tr>
-                                    <th>Fecha</th>
-                                    <th>Mes</th>
+                                    <th>Fecha Pago</th>
+                                    <th>Periodo</th>
                                     <th>Concepto</th>
                                     <th>Monto</th>
                                     <th>Método</th>
+                                    <th>Acción</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -534,12 +652,18 @@ const getStatusColor = (status) => {
                                     <td>{{ h.fecha }}</td>
                                     <td>{{
                                         ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul',
-                                            'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][h.mes
-                                        - 1] }}</td>
+                                            'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][parseInt(h.mes)
+                                        - 1] }} / {{ h.year || '2025' }}</td>
                                     <td><span class="badge" style="background:#f0f7f4; color:#1fa774;">{{ h.tipo
                                     }}</span></td>
                                     <td><strong>${{ Number(h.valor).toLocaleString() }}</strong></td>
                                     <td><small>{{ h.metodo }}</small></td>
+                                    <td>
+                                        <button @click="handleRemovePayment(h.id)" class="btn-action" 
+                                            style="background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; border-radius: 4px; padding: 2px 8px;">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                                 <tr v-if="playerHistory.length === 0">
                                     <td colspan="5" style="text-align: center; padding: 2rem; color: #888;">No hay

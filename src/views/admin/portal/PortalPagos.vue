@@ -276,7 +276,7 @@ const exportReceipt = (payment) => {
                                     <td>{{ h.fecha }}</td>
                                     <td>{{
                                         ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre','Noviembre','Diciembre'][h.mes
-                                        - 1] }}</td>
+                                        - 1] }} / {{ h.year || '2025' }}</td>
                                     <td>{{ h.tipo }}</td>
                                     <td><strong>${{ Number(h.valor).toLocaleString() }}</strong></td>
                                 </tr>

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { apiService } from '../services/api';
 
 export const usePaymentsStore = defineStore('payments', () => {
@@ -24,12 +24,51 @@ export const usePaymentsStore = defineStore('payments', () => {
         }
     };
 
+    const fetchAllPayments = async (params = {}) => {
+        isLoading.value = true;
+        try {
+            const data = await apiService.request('payments', 'GET', params);
+            historicalPayments.value = Array.isArray(data) ? data : [];
+            return historicalPayments.value;
+        } catch (error) {
+            console.error('Error fetching all payments:', error);
+            return [];
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
+    const fetchPaymentsReport = async (month, year) => {
+        isLoading.value = true;
+        try {
+            // Intentar obtener un reporte estructurado del backend
+            const data = await apiService.request('payments_report', 'GET', { month, year });
+            return data;
+        } catch (error) {
+            // Si no existe el endpoint, el componente lo manejará filtrando historicalPayments
+            console.warn('Endpoint payments_report no disponible, usando histórico general');
+            return null;
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
     const registerPayment = async (paymentData) => {
         try {
             const result = await apiService.request('payments', 'POST', paymentData);
             return result;
         } catch (error) {
             console.error('Error registering payment:', error);
+            throw error;
+        }
+    };
+
+    const deletePayment = async (id) => {
+        try {
+            const result = await apiService.request('payments', 'DELETE', { id });
+            return result;
+        } catch (error) {
+            console.error('Error deleting payment:', error);
             throw error;
         }
     };
@@ -69,10 +108,10 @@ export const usePaymentsStore = defineStore('payments', () => {
     };
 
     const calculatePazSalvoDebt = async (playerId, monthlyDebt = 0) => {
-        const result = await apiService.request('paz_salvo', 'POST', { 
-            player_id: playerId, 
+        const result = await apiService.request('paz_salvo', 'POST', {
+            player_id: playerId,
             monthly_debt: monthlyDebt,
-            only_calculate: true 
+            only_calculate: true
         });
         return result.data;
     };
@@ -85,6 +124,10 @@ export const usePaymentsStore = defineStore('payments', () => {
         return await apiService.request('paz_salvo', 'PUT', { id, ...statusData });
     };
 
+    const syncFinances = async () => {
+        return await apiService.request('sync_finances', 'POST');
+    };
+
     return {
         historicalPayments,
         subscriptions,
@@ -93,7 +136,10 @@ export const usePaymentsStore = defineStore('payments', () => {
         pazSalvoRequests,
         isLoading,
         fetchPaymentsByPlayer,
+        fetchAllPayments,
+        fetchPaymentsReport,
         registerPayment,
+        deletePayment,
         fetchSubscriptions,
         fetchBillingCalendar,
         updateBillingMonth,
@@ -101,6 +147,7 @@ export const usePaymentsStore = defineStore('payments', () => {
         fetchPazSalvoRequests,
         calculatePazSalvoDebt,
         submitPazSalvoRequest,
-        updatePazSalvoStatus
+        updatePazSalvoStatus,
+        syncFinances
     };
 });
