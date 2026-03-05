@@ -9,7 +9,10 @@ const error = ref('');
 const fetchUsers = async () => {
     loading.value = true;
     try {
-        const data = await apiService.request('users');
+        const response = await apiService.request('users');
+        // El API puede devolver el array directo o el wrapper {status, data}
+        const data = response.data || response;
+        
         if (Array.isArray(data)) {
             // Filtrar solo padres de familia para el control financiero/usuarios
             users.value = data.filter(u => u.role === 'padre_familia');
