@@ -11,7 +11,8 @@ export const usePlayersStore = defineStore('players', () => {
         isLoading.value = true;
         error.value = null;
         try {
-            const data = await apiService.request('players');
+            const response = await apiService.request('players');
+            const data = response?.data;
             if (data && Array.isArray(data)) {
                 players.value = data.map(p => ({
                     ...p,
@@ -80,7 +81,8 @@ export const usePlayersStore = defineStore('players', () => {
     const fetchPlayersByParent = async (email) => {
         isLoading.value = true;
         try {
-            const data = await apiService.request('players', 'GET', { parentEmail: email });
+            const response = await apiService.request('players', 'GET', { parentEmail: email });
+            const data = response?.data;
             const normalized = (Array.isArray(data) ? data : []).map(p => ({
                 ...p,
                 fullName: p.fullName || p.name || p.playerName,

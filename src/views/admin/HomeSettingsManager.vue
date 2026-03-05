@@ -64,19 +64,19 @@ const openEditSlide = (slide) => {
   isSlideModalOpen.value = true;
 };
 
-const handleSlideSubmit = () => {
+const handleSlideSubmit = async () => {
   if (isEditingSlide.value) {
-    homeSettings.updateHeroSlide(currentSlideId.value, slideForm.value);
+    await homeSettings.updateHeroSlide(currentSlideId.value, slideForm.value);
   } else {
-    homeSettings.addHeroSlide(slideForm.value);
+    await homeSettings.addHeroSlide(slideForm.value);
   }
   isSlideModalOpen.value = false;
   showSuccess('Slide guardado');
 };
 
-const deleteSlide = (id) => {
+const deleteSlide = async (id) => {
   if (confirm('¿Eliminar este slide?')) {
-    homeSettings.deleteHeroSlide(id);
+    await homeSettings.deleteHeroSlide(id);
     showSuccess('Slide eliminado');
   }
 };
@@ -95,19 +95,19 @@ const openEditPhil = (item) => {
   isPhilModalOpen.value = true;
 };
 
-const handlePhilSubmit = () => {
+const handlePhilSubmit = async () => {
   if (isEditingPhil.value) {
-    homeSettings.updatePhilosophyItem(currentPhilId.value, philForm.value);
+    await homeSettings.updatePhilosophyItem(currentPhilId.value, philForm.value);
   } else {
-    homeSettings.addPhilosophyItem(philForm.value);
+    await homeSettings.addPhilosophyItem(philForm.value);
   }
   isPhilModalOpen.value = false;
   showSuccess('Ítem guardado');
 };
 
-const deletePhil = (id) => {
+const deletePhil = async (id) => {
   if (confirm('¿Eliminar este ítem?')) {
-    homeSettings.deletePhilosophyItem(id);
+    await homeSettings.deletePhilosophyItem(id);
     showSuccess('Ítem eliminado');
   }
 };
@@ -121,12 +121,11 @@ const handleFileUpload = async (event, target) => {
     const url = await uploadFile(file);
     if (target === 'slide') slideForm.value.image = url;
     else if (target === 'match-slide') {
-      homeSettings.updateMatchSlideImage(url);
+      await homeSettings.updateMatchSlideImage(url);
     }
     else if (target.startsWith('hero_')) {
       const pageKey = target.replace('hero_', '');
-      homeSettings.pageHeroes[pageKey].image = url;
-      homeSettings.updatePageHero(pageKey, { image: url });
+      await homeSettings.updatePageHero(pageKey, { image: url });
     }
   } catch (e) { alert('Error subiendo imagen'); }
 };
@@ -166,7 +165,7 @@ const handleFileUpload = async (event, target) => {
                 </div>
               </div>
               <label class="switch">
-                <input type="checkbox" :checked="section.enabled" @change="homeSettings.toggleSection(key)">
+                <input type="checkbox" :checked="section.enabled" @change="async () => await homeSettings.toggleSection(key)">
                 <span class="slider round"></span>
               </label>
             </div>
@@ -189,7 +188,7 @@ const handleFileUpload = async (event, target) => {
                 <i class="fa-solid fa-upload"></i>
                 <input type="file" @change="e => handleFileUpload(e, 'match-slide')" style="display:none">
               </label>
-              <button @click="homeSettings.updateMatchSlideImage(homeSettings.matchSlideImage)"
+              <button @click="async () => await homeSettings.updateMatchSlideImage(homeSettings.matchSlideImage)"
                 class="btn-admin btn-admin--primary">Guardar</button>
             </div>
           </div>

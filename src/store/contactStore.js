@@ -36,7 +36,9 @@ export const useContactStore = defineStore('contact', () => {
         if (savedSocial) socialLinks.value = JSON.parse(savedSocial);
 
         try {
-            const data = await apiService.request('settings', 'GET', { key: 'contact_settings' });
+            const response = await apiService.request('settings', 'GET', { key: 'contact_settings' });
+            const data = response?.data;
+
             // Si el servidor tiene datos, mandan sobre el LocalStorage
             if (data && typeof data === 'object' && (data.contactInfo || data.footerInfo || data.socialLinks)) {
                 if (data.contactInfo) contactInfo.value = data.contactInfo;

@@ -63,7 +63,8 @@ export const useMatchesStore = defineStore('matches', () => {
         }
 
         try {
-            const data = await apiService.request('matches');
+            const response = await apiService.request('matches');
+            const data = response?.data;
             if (data && Array.isArray(data)) {
                 matches.value = data.map(item => ({
                     ...item,

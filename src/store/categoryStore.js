@@ -92,10 +92,13 @@ export const useCategoryStore = defineStore('categories', () => {
 
         try {
             // 2️⃣ Sincronizar con backend
-            const [catsData, benefitsData] = await Promise.all([
+            const [catsRes, benefitsRes] = await Promise.all([
                 apiService.request('categories').catch(() => null),
                 apiService.request('benefits').catch(() => null)
             ]);
+
+            const catsData = catsRes?.data;
+            const benefitsData = benefitsRes?.data;
 
             // ✅ CATEGORIES (acepta arrays vacíos)
             if (Array.isArray(catsData)) {

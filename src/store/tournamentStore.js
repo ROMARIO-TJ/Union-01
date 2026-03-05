@@ -54,7 +54,9 @@ export const useTournamentStore = defineStore('tournament', () => {
         }
 
         try {
-            const data = await apiService.request('settings', 'GET', { key: 'tournament_standings' });
+            const response = await apiService.request('settings', 'GET', { key: 'tournament_standings' });
+            const data = response?.data;
+
             if (data && Array.isArray(data)) {
                 standings.value = data;
                 saveLocally();

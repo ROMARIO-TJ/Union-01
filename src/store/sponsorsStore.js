@@ -32,7 +32,8 @@ export const useSponsorsStore = defineStore('sponsors', () => {
         }
 
         try {
-            const data = await apiService.request('sponsors');
+            const response = await apiService.request('sponsors');
+            const data = response?.data;
             if (data && Array.isArray(data)) {
                 sponsors.value = data.map(item => ({
                     ...item,

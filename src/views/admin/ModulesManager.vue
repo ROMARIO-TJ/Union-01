@@ -5,17 +5,17 @@ import { useGlobalSettingsStore } from '../../store/globalSettingsStore';
 const globalSettings = useGlobalSettingsStore();
 const showSuccessMessage = ref(false);
 
-const handleToggle = (moduleKey) => {
-  globalSettings.toggleModule(moduleKey);
+const handleToggle = async (moduleKey) => {
+  await globalSettings.toggleModule(moduleKey);
   showSuccessMessage.value = true;
   setTimeout(() => {
     showSuccessMessage.value = false;
   }, 2000);
 };
 
-const handleReset = () => {
+const handleReset = async () => {
   if (confirm('¿Estás seguro de que deseas restaurar todos los módulos a su estado por defecto (habilitados)?')) {
-    globalSettings.resetToDefaults();
+    await globalSettings.resetToDefaults();
     showSuccessMessage.value = true;
     setTimeout(() => {
       showSuccessMessage.value = false;
@@ -54,27 +54,23 @@ const handleReset = () => {
     <div class="info-box">
       <i class="fa-solid fa-info-circle"></i>
       <div>
-        <strong>Nota:</strong> Los módulos <strong>Inicio</strong>, <strong>El Club</strong> y <strong>Contacto</strong> 
+        <strong>Nota:</strong> Los módulos <strong>Inicio</strong>, <strong>El Club</strong> y <strong>Contacto</strong>
         siempre están activos y no pueden deshabilitarse. Solo puedes controlar los módulos opcionales listados abajo.
       </div>
     </div>
 
     <!-- Modules Grid -->
     <div class="modules-grid">
-      <div 
-        v-for="(module, key) in globalSettings.modules" 
-        :key="key" 
-        class="module-card"
-        :class="{ 'module-disabled': !module.enabled, 'module-locked': module.alwaysActive }"
-      >
+      <div v-for="(module, key) in globalSettings.modules" :key="key" class="module-card"
+        :class="{ 'module-disabled': !module.enabled, 'module-locked': module.alwaysActive }">
         <div class="module-icon">
           <i :class="module.icon"></i>
         </div>
-        
+
         <div class="module-info">
           <h3 class="module-title">{{ module.label }}</h3>
           <p class="module-description">{{ module.description }}</p>
-          
+
           <div class="module-affects">
             <strong>Afecta:</strong>
             <ul>
@@ -85,11 +81,7 @@ const handleReset = () => {
 
         <div class="module-toggle">
           <label v-if="!module.alwaysActive" class="toggle-switch">
-            <input 
-              type="checkbox" 
-              :checked="module.enabled"
-              @change="handleToggle(key)"
-            >
+            <input type="checkbox" :checked="module.enabled" @change="handleToggle(key)">
             <span class="toggle-slider"></span>
           </label>
           <div v-else class="always-active-badge">
@@ -339,11 +331,11 @@ const handleReset = () => {
   border-radius: 50%;
 }
 
-input:checked + .toggle-slider {
+input:checked+.toggle-slider {
   background-color: var(--accent-color);
 }
 
-input:checked + .toggle-slider:before {
+input:checked+.toggle-slider:before {
   transform: translateX(26px);
 }
 

@@ -98,7 +98,8 @@ export const useNewsStore = defineStore('news', () => {
         }
 
         try {
-            const data = await apiService.request('news');
+            const response = await apiService.request('news');
+            const data = response?.data; // Correctly unwrap response.data
             if (data && Array.isArray(data)) {
                 news.value = data.map(item => ({
                     ...item,

@@ -75,7 +75,9 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
         }
 
         try {
-            const data = await apiService.request('settings', 'GET', { key: 'global_settings' });
+            const response = await apiService.request('settings', 'GET', { key: 'global_settings' });
+            const data = response?.data;
+
             if (data && typeof data === 'object') {
                 Object.keys(modules.value).forEach(key => {
                     if (data[key] !== undefined) {
@@ -85,7 +87,7 @@ export const useGlobalSettingsStore = defineStore('globalSettings', () => {
                 saveToLocalStorage();
             }
         } catch (err) {
-            // ...
+            console.error('Error synchronizing global settings:', err);
         } finally {
             isLoading.value = false;
         }

@@ -13,7 +13,8 @@ export const usePaymentsStore = defineStore('payments', () => {
     const fetchPaymentsByPlayer = async (jugadorId) => {
         isLoading.value = true;
         try {
-            const data = await apiService.request('payments', 'GET', { jugadorId });
+            const response = await apiService.request('payments', 'GET', { jugadorId });
+            const data = response?.data;
             historicalPayments.value = Array.isArray(data) ? data : [];
             return historicalPayments.value;
         } catch (error) {
@@ -27,7 +28,8 @@ export const usePaymentsStore = defineStore('payments', () => {
     const fetchAllPayments = async (params = {}) => {
         isLoading.value = true;
         try {
-            const data = await apiService.request('payments', 'GET', params);
+            const response = await apiService.request('payments', 'GET', params);
+            const data = response?.data;
             historicalPayments.value = Array.isArray(data) ? data : [];
             return historicalPayments.value;
         } catch (error) {
@@ -41,9 +43,8 @@ export const usePaymentsStore = defineStore('payments', () => {
     const fetchPaymentsReport = async (month, year) => {
         isLoading.value = true;
         try {
-            // Intentar obtener un reporte estructurado del backend
-            const data = await apiService.request('payments_report', 'GET', { month, year });
-            return data;
+            const response = await apiService.request('payments_report', 'GET', { month, year });
+            return response?.data;
         } catch (error) {
             // Si no existe el endpoint, el componente lo manejará filtrando historicalPayments
             console.warn('Endpoint payments_report no disponible, usando histórico general');
@@ -77,13 +78,15 @@ export const usePaymentsStore = defineStore('payments', () => {
 
     const fetchSubscriptions = async (playerId = null) => {
         const params = playerId ? { player_id: playerId } : {};
-        const data = await apiService.request('subscriptions', 'GET', params);
+        const response = await apiService.request('subscriptions', 'GET', params);
+        const data = response?.data;
         subscriptions.value = Array.isArray(data) ? data : [];
         return subscriptions.value;
     };
 
     const fetchBillingCalendar = async () => {
-        const data = await apiService.request('billing_calendar', 'GET');
+        const response = await apiService.request('billing_calendar', 'GET');
+        const data = response?.data;
         billingCalendar.value = Array.isArray(data) ? data : [];
         return billingCalendar.value;
     };
@@ -95,14 +98,16 @@ export const usePaymentsStore = defineStore('payments', () => {
 
     const fetchConventions = async (playerId = null) => {
         const params = playerId ? { player_id: playerId } : {};
-        const data = await apiService.request('conventions', 'GET', params);
+        const response = await apiService.request('conventions', 'GET', params);
+        const data = response?.data;
         conventions.value = Array.isArray(data) ? data : [];
         return conventions.value;
     };
 
     const fetchPazSalvoRequests = async (status = null) => {
         const params = status ? { status } : {};
-        const data = await apiService.request('paz_salvo', 'GET', params);
+        const response = await apiService.request('paz_salvo', 'GET', params);
+        const data = response?.data;
         pazSalvoRequests.value = Array.isArray(data) ? data : [];
         return pazSalvoRequests.value;
     };

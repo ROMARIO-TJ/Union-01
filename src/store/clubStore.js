@@ -36,28 +36,32 @@ export const useClubStore = defineStore('club', () => {
         timeline.value = localTimeline ? JSON.parse(localTimeline) : initialTimeline;
 
         try {
-            const [boardData, facilitiesData, timelineData] = await Promise.all([
+            const [boardRes, facilitiesRes, timelineRes] = await Promise.all([
                 apiService.request('settings', 'GET', { key: 'club_board' }).catch(() => null),
                 apiService.request('settings', 'GET', { key: 'club_facilities' }).catch(() => null),
                 apiService.request('settings', 'GET', { key: 'club_timeline' }).catch(() => null)
             ]);
 
+            const boardData = boardRes?.data;
+            const facilitiesData = facilitiesRes?.data;
+            const timelineData = timelineRes?.data;
+
             if (boardData) {
-                boardMembers.value = typeof boardData === 'string' ? JSON.parse(boardData) : boardData;
+                boardMembers.value = Array.isArray(boardData) ? boardData : JSON.parse(boardData);
                 localStorage.setItem('union_board_v1', JSON.stringify(boardMembers.value));
             }
 
             if (facilitiesData) {
-                facilities.value = typeof facilitiesData === 'string' ? JSON.parse(facilitiesData) : facilitiesData;
+                facilities.value = Array.isArray(facilitiesData) ? facilitiesData : JSON.parse(facilitiesData);
                 localStorage.setItem('union_facilities_v1', JSON.stringify(facilities.value));
             }
 
             if (timelineData) {
-                timeline.value = typeof timelineData === 'string' ? JSON.parse(timelineData) : timelineData;
+                timeline.value = Array.isArray(timelineData) ? timelineData : JSON.parse(timelineData);
                 localStorage.setItem('union_timeline_v1', JSON.stringify(timeline.value));
             }
         } catch (error) {
-            console.warn('Conexión con el servidor fallida. Usando datos locales del Club.');
+            console.warn('Conexión con el servidor fallida o datos incompatibles. Usando respaldo local.');
         } finally {
             isLoading.value = false;
         }

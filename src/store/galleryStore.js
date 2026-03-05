@@ -56,8 +56,9 @@ export const useGalleryStore = defineStore('gallery', () => {
         }
 
         try {
-            const data = await apiService.request('gallery');
-            if (Array.isArray(data)) {
+            const response = await apiService.request('gallery');
+            const data = response?.data;
+            if (data && Array.isArray(data)) {
                 photos.value = data.map(item => ({
                     ...item,
                     image: item.url || '',

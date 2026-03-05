@@ -23,15 +23,15 @@ onMounted(() => {
 });
 
 // Watch for toggle changes to save immediately
-watch(() => contactForm.value.showForm, (newVal) => {
+watch(() => contactForm.value.showForm, async (newVal) => {
     if (newVal !== contactStore.contactInfo.showForm) {
-        contactStore.updateContactInfo({ showForm: newVal });
+        await contactStore.updateContactInfo({ showForm: newVal });
         showSuccess(newVal ? 'Formulario activado' : 'Formulario desactivado');
     }
 });
 
-const saveContact = () => {
-    contactStore.updateContactInfo(contactForm.value);
+const saveContact = async () => {
+    await contactStore.updateContactInfo(contactForm.value);
     showSuccess('Información de contacto guardada');
 };
 

@@ -20,6 +20,11 @@ require_once 'db_connect.php';
 $action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true);
 
+// Garantizar infraestructura financiera básica en cada petición
+if (function_exists('syncBillingCalendar')) {
+    syncBillingCalendar($pdo);
+}
+
 // Soporte para servidores que bloquean DELETE/PUT/PATCH
 // Se puede enviar el método real en la URL o en el JSON como '_method'
 $method = $_SERVER['REQUEST_METHOD'];
@@ -299,10 +304,10 @@ function handleCrud($pdo, $table, $method, $id, $input) {
             $stmt = $pdo->prepare("SELECT * FROM `$table` WHERE id = ?");
             $stmt->execute([$id]);
             $res = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo json_encode($res ?: []);
+            response('success', $res ?: null);
         } else {
             $stmt = $pdo->query("SELECT * FROM `$table` ORDER BY id DESC");
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+            response('success', $stmt->fetchAll(PDO::FETCH_ASSOC));
         }
     } elseif ($method === 'POST') {
         if (!$input) response('error', 'No hay datos para insertar');
@@ -447,7 +452,6 @@ function handlePayments($pdo, $method, $id, $input) {
                     'metodo' => $input['metodo'] ?? 'Efectivo',
                     'fecha' => $input['fecha'] ?? date('Y-m-d')
                 ];
-
                 $keys = array_keys($filteredData);
                 $fields = implode(',', array_map(function($k) { return "`$k`"; }, $keys));
                 $placeholders = implode(',', array_fill(0, count($keys), '?'));
@@ -467,26 +471,19 @@ function handlePayments($pdo, $method, $id, $input) {
     } elseif ($method === 'GET' && isset($_GET['jugadorId'])) {
         $stmt = $pdo->prepare("SELECT * FROM payments WHERE jugadorId = ? ORDER BY year DESC, mes DESC, fecha DESC");
         $stmt->execute([$_GET['jugadorId']]);
-        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        exit;
+        response('success', $stmt->fetchAll(PDO::FETCH_ASSOC));
     } elseif ($method === 'DELETE') {
         if (!$id) response('error', 'ID de pago requerido');
         
-        // 1. Obtener ID del jugador antes de eliminar para recalcular
         $stmtP = $pdo->prepare("SELECT jugadorId FROM payments WHERE id = ?");
         $stmtP->execute([$id]);
         $pId = $stmtP->fetchColumn();
         
         if ($pId) {
-            // 2. Eliminar de pagos
             $stmt = $pdo->prepare("DELETE FROM payments WHERE id = ?");
             $stmt->execute([$id]);
-            
-            // 3. También limpiar en club_subscriptions si existe referencia
             $stmtS = $pdo->prepare("UPDATE club_subscriptions SET status = 'Pendiente', payment_id = NULL WHERE payment_id = ?");
             $stmtS->execute([$id]);
-            
-            // 4. Recalcular estado final
             recalculatePlayerStatus($pdo, $pId);
             success("Pago eliminado y estado del jugador actualizado");
         } else {
@@ -528,7 +525,7 @@ function handlePlayers($pdo, $method, $id, $input) {
                 $stmt = $pdo->prepare("SELECT * FROM players WHERE id = ?");
                 $stmt->execute([$id]);
                 $res = $stmt->fetch(PDO::FETCH_ASSOC);
-                echo json_encode($res ?: []);
+                response('success', $res ?: null);
             } else {
                 $parentEmail = $_GET['parentEmail'] ?? null;
                 if ($parentEmail) {
@@ -553,7 +550,7 @@ function handlePlayers($pdo, $method, $id, $input) {
                 } else {
                     $stmt = $pdo->query("SELECT * FROM players ORDER BY id DESC");
                 }
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+                response('success', $stmt->fetchAll(PDO::FETCH_ASSOC));
             }
             exit;
         }
@@ -657,39 +654,12 @@ function handlePlayers($pdo, $method, $id, $input) {
             $stmt->execute(array_values($filteredData));
             $newPlayerId = $pdo->lastInsertId();
 
-            // --- AUTO-REGISTRO DE PAGOS INICIALES ---
-            // Si el registro viene de un proceso donde "ya pagó" (Inscripción + 1a mes)
-            try {
-                $category = $data['category'] ?? '';
-                $isComp = isCompetitive($category);
-                $fee = $isComp ? 20000 : 50000;
-                $currentMonth = (int)date('n');
-                $currentYear = (int)date('Y');
-                $today = date('Y-m-d');
-
-                // 1. Pago Inscripción
-                $stmtP1 = $pdo->prepare("INSERT INTO payments (jugadorId, tipo, mes, year, valor, metodo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmtP1->execute([$newPlayerId, 'Inscripción', $currentMonth, $currentYear, $fee, 'Efectivo', $today]);
-
-                // 2. Pago Mensualidad / Suscripción
-                $tipoP2 = $isComp ? 'Suscripción Club' : 'Mensualidad';
-                $stmtP2 = $pdo->prepare("INSERT INTO payments (jugadorId, tipo, mes, year, valor, metodo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmtP2->execute([$newPlayerId, $tipoP2, $currentMonth, $currentYear, $fee, 'Efectivo', $today]);
-
-                // 3. Si es competitivo, marcar en club_subscriptions
-                if ($isComp) {
-                    $pid1 = $pdo->lastInsertId(); // Este es el ID del pago P2
-                    $stmtS = $pdo->prepare("INSERT INTO club_subscriptions (player_id, month, year, amount, status, payment_id) VALUES (?, ?, ?, ?, 'Pagado', ?)");
-                    $stmtS->execute([$newPlayerId, $currentMonth, $currentYear, $fee, $pid1]);
-                }
-
-                // Recalcular estado para ponerlo "Al Día"
-                recalculatePlayerStatus($pdo, $newPlayerId);
-
-            } catch (Exception $e_pay) {
-                // Si falla el auto-pago, no bloqueamos la creación del jugador, solo lo reportamos por log
-                error_log("Error auto-registro pagos: " . $e_pay->getMessage());
-            }
+            // --- AUTO-REGISTRO DE PAGOS INICIALES ELIMINADO ---
+            // Los pagos deben ser registrados manualmente por el administrador
+            // o a través del portal de pagos oficial para evitar inconsistencias.
+            
+            // Recalcular estado para que aparezca como "Pendiente" si tiene deudas (Inscripción/Mensualidad)
+            recalculatePlayerStatus($pdo, $newPlayerId);
 
             success("Registro creado exitosamente");
         } else {
@@ -713,17 +683,17 @@ function handleGallery($pdo, $method, $id, $input) {
         if ($id) {
             $stmt = $pdo->prepare("SELECT * FROM gallery WHERE id = ?");
             $stmt->execute([$id]);
-            echo json_encode($stmt->fetch(PDO::FETCH_ASSOC) ?: []);
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+            response('success', $item ?: null);
         } else {
             $stmt = $pdo->query("SELECT * FROM gallery ORDER BY id DESC");
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $normalized = array_map(function($item) {
-                // Return generic fields for frontend
                 $item['image'] = $item['url'] ?? '';
                 $item['title'] = $item['title'] ?? $item['caption'] ?? '';
                 return $item;
             }, $data);
-            echo json_encode($normalized);
+            response('success', $normalized);
         }
     } elseif ($method === 'POST') {
         $url = $input['url'] ?? $input['image'] ?? '';
@@ -779,25 +749,34 @@ function handleSettings($pdo, $method, $input) {
 
     if ($method === 'GET') {
         $key = $_GET['key'] ?? '';
+        if (!$key) response('error', 'Key requerida');
+        
         $stmt = $pdo->prepare("SELECT `value` FROM settings WHERE `key` = ?");
         $stmt->execute([$key]);
         $row = $stmt->fetch();
         if ($row) {
-            echo $row['value'];
+            // Decodificamos el JSON guardado para enviarlo como DATA real en el wrapper standard
+            $val = json_decode($row['value'], true);
+            response('success', $val ?: $row['value']);
         } else {
-            echo json_encode(null);
+            response('success', null);
         }
     } 
-    elseif ($method === 'POST') {
+    elseif ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
         if (!isset($input['key']) || !isset($input['value'])) {
             response('error', 'Datos de configuración incompletos');
         }
         $key = $input['key'];
+        // Si el valor es un array/objeto, lo encodeamos como JSON string para MySQL
         $value = is_array($input['value']) ? json_encode($input['value']) : $input['value'];
         
-        $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?");
-        $stmt->execute([$key, $value, $value]);
-        success("Configuración guardada");
+        try {
+            $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?");
+            $stmt->execute([$key, $value, $value]);
+            success("Configuración '$key' guardada correctamente");
+        } catch (Exception $e) {
+            response('error', "Error al guardar configuración: " . $e->getMessage());
+        }
     }
 }
 
@@ -896,7 +875,7 @@ function handlePazSalvo($pdo, $method, $id, $input) {
             
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+            response('success', $stmt->fetchAll(PDO::FETCH_ASSOC));
         }
     } 
     elseif ($method === 'POST') {

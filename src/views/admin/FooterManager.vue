@@ -40,9 +40,9 @@ onMounted(() => {
 });
 
 // Watch for toggle changes to save immediately
-watch([() => footerData.value.showMenu, () => footerData.value.showContact], ([newMenu, newContact]) => {
+watch([() => footerData.value.showMenu, () => footerData.value.showContact], async ([newMenu, newContact]) => {
     if (newMenu !== contactStore.footerInfo.showMenu || newContact !== contactStore.footerInfo.showContact) {
-        contactStore.updateFooterInfo({
+        await contactStore.updateFooterInfo({
             showMenu: newMenu,
             showContact: newContact
         });
@@ -50,8 +50,8 @@ watch([() => footerData.value.showMenu, () => footerData.value.showContact], ([n
     }
 });
 
-const handleSave = () => {
-    contactStore.updateFooterInfo(footerData.value);
+const handleSave = async () => {
+    await contactStore.updateFooterInfo(footerData.value);
     showSuccess('Configuración del Footer guardada');
 };
 
@@ -73,19 +73,19 @@ const openEditSocial = (link) => {
     isModalOpen.value = true;
 };
 
-const handleSocialSubmit = () => {
+const handleSocialSubmit = async () => {
     if (isEditing.value) {
-        contactStore.updateSocialLink(currentId.value, socialForm.value);
+        await contactStore.updateSocialLink(currentId.value, socialForm.value);
     } else {
-        contactStore.addSocialLink(socialForm.value);
+        await contactStore.addSocialLink(socialForm.value);
     }
     isModalOpen.value = false;
     showSuccess('Enlace social actualizado');
 };
 
-const deleteSocial = (id) => {
+const deleteSocial = async (id) => {
     if (confirm('¿Estás seguro de eliminar este enlace?')) {
-        contactStore.deleteSocialLink(id);
+        await contactStore.deleteSocialLink(id);
         showSuccess('Enlace eliminado');
     }
 };

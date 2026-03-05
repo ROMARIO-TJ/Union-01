@@ -179,7 +179,11 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
         }
 
         try {
-            const data = await apiService.request('settings', 'GET', { key: 'home_settings' });
+            const response = await apiService.request('settings', 'GET', { key: 'home_settings' });
+            // La API standard devuelve { status: 'success', data: { ... } }
+            // Extraemos 'data' que es donde reside el objeto de configuración real
+            const data = response?.data;
+
             if (data && typeof data === 'object') {
                 if (data.sections) {
                     Object.keys(sections.value).forEach(key => {
@@ -191,13 +195,19 @@ export const useHomeSettingsStore = defineStore('homeSettings', () => {
                         }
                     });
                 }
-                heroSlides.value = (data.heroSlides || initialSlides).map(s => ({ ...s, showButtons: s.showButtons !== undefined ? s.showButtons : true }));
+                heroSlides.value = (data.heroSlides || initialSlides).map(s => ({
+                    ...s,
+                    showButtons: s.showButtons !== undefined ? s.showButtons : true
+                }));
+
                 philosophy.value = (data.philosophy || initialPhilosophy).map(p => ({
                     ...p,
                     icon: sanitizeIcon(p.icon)
                 }));
+
                 pageHeroes.value = { ...initialPageHeroes, ...(data.pageHeroes || {}) };
                 matchSlideImage.value = data.matchSlideImage || 'https://realvalladolidacademy.com/wp-content/uploads/2024/06/tecnificacion-futbol-3.webp';
+
                 saveToLocalStorage();
             }
         } catch (err) {
