@@ -238,7 +238,8 @@ router.beforeEach(async (to, from) => {
   }
 
   // Si un padre intenta acceder a una ruta de admin tecleando la URL (fallback de seguridad)
-  if (isStrictAdminRoute && authStore.isParentAuthenticated && authStore.parentUser?.role === 'padre_familia') {
+  // SOLO redirigimos si NO es admin, para evitar conflictos si alguien tiene ambas sesiones abiertas
+  if (isStrictAdminRoute && !authStore.isAdminAuthenticated && authStore.isParentAuthenticated) {
     return { path: '/admin/portal/hijo' }; // Redirigir a SU área
   }
 

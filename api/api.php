@@ -104,9 +104,10 @@ switch ($action) {
         handlePazSalvo($pdo, $method, $id, $input);
         break;
     case 'sync_finances':
-        syncBillingCalendar($pdo);
-        recalculateAllPlayersStatus($pdo);
-        success("Sincronización financiera completada");
+        if ($method === 'POST') {
+            recalculateAllPlayersStatus($pdo);
+            success("Sincronización financiera completada");
+        }
         break;
     default:
         response('error', 'Acción no válida: ' . $action);
@@ -340,8 +341,50 @@ function handleCrud($pdo, $table, $method, $id, $input) {
         success("Registro actualizado exitosamente");
     } elseif ($method === 'DELETE') {
         if (!$id) response('error', 'ID requerido para eliminar');
+        
+        // CASCADA MANUAL: Si borramos un usuario (padre), borrar sus hijos y todo lo relacionado
+        if ($table === 'users') {
+            $stmtU = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+            $stmtU->execute([$id]);
+            $uEmail = $stmtU->fetchColumn();
+            
+            if ($uEmail) {
+                // Buscar todos los hijos vinculados a ese correo
+                $stmtH = $pdo->prepare("SELECT id FROM players WHERE email = ?");
+                $stmtH->execute([$uEmail]);
+                $hijosIds = $stmtH->fetchAll(PDO::FETCH_COLUMN);
+                
+                foreach ($hijosIds as $hId) {
+                    // Borrar historial de cada hijo (esto dispara la misma limpieza que borrar un jugador solo)
+                    $pdo->prepare("DELETE FROM payments WHERE jugadorId = ?")->execute([$hId]);
+                    $pdo->prepare("DELETE FROM club_subscriptions WHERE player_id = ?")->execute([$hId]);
+                    $pdo->prepare("DELETE FROM peace_and_safety_requests WHERE player_id = ?")->execute([$hId]);
+                }
+                // Finalmente borrar los registros de los hijos
+                $pdo->prepare("DELETE FROM players WHERE email = ?")->execute([$uEmail]);
+            }
+        }
+        
+        // Si borramos un jugador directamente (no vía borrar usuario)
+        if ($table === 'players') {
+            $pdo->prepare("DELETE FROM payments WHERE jugadorId = ?")->execute([$id]);
+            $pdo->prepare("DELETE FROM club_subscriptions WHERE player_id = ?")->execute([$id]);
+            $pdo->prepare("DELETE FROM peace_and_safety_requests WHERE player_id = ?")->execute([$id]);
+        }
+        
+        // Si borramos una suscripción, recalcular estado del jugador
+        $pId = null;
+        if ($table === 'club_subscriptions' || $table === 'subscriptions') {
+            $stmtP = $pdo->prepare("SELECT player_id FROM club_subscriptions WHERE id = ?");
+            $stmtP->execute([$id]);
+            $pId = $stmtP->fetchColumn();
+        }
+
         $stmt = $pdo->prepare("DELETE FROM `$table` WHERE id = ?");
         $stmt->execute([$id]);
+
+        if ($pId) recalculatePlayerStatus($pdo, $pId);
+        
         success("Registro eliminado exitosamente");
     }
 }
@@ -425,6 +468,43 @@ function handlePayments($pdo, $method, $id, $input) {
         $stmt = $pdo->prepare("SELECT * FROM payments WHERE jugadorId = ? ORDER BY year DESC, mes DESC, fecha DESC");
         $stmt->execute([$_GET['jugadorId']]);
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        exit;
+    } elseif ($method === 'DELETE') {
+        if (!$id) response('error', 'ID de pago requerido');
+        
+        // 1. Obtener ID del jugador antes de eliminar para recalcular
+        $stmtP = $pdo->prepare("SELECT jugadorId FROM payments WHERE id = ?");
+        $stmtP->execute([$id]);
+        $pId = $stmtP->fetchColumn();
+        
+        if ($pId) {
+            // 2. Eliminar de pagos
+            $stmt = $pdo->prepare("DELETE FROM payments WHERE id = ?");
+            $stmt->execute([$id]);
+            
+            // 3. También limpiar en club_subscriptions si existe referencia
+            $stmtS = $pdo->prepare("UPDATE club_subscriptions SET status = 'Pendiente', payment_id = NULL WHERE payment_id = ?");
+            $stmtS->execute([$id]);
+            
+            // 4. Recalcular estado final
+            recalculatePlayerStatus($pdo, $pId);
+            success("Pago eliminado y estado del jugador actualizado");
+        } else {
+            response('error', 'Pago no encontrado');
+        }
+    } elseif ($method === 'PATCH' || $method === 'PUT') {
+        if (!$id) response('error', 'ID requerido');
+        
+        // 1. Obtener ID del jugador antes de actualizar
+        $stmtP = $pdo->prepare("SELECT jugadorId FROM payments WHERE id = ?");
+        $stmtP->execute([$id]);
+        $pId = $stmtP->fetchColumn();
+
+        // 2. Ejecutar actualización genérica
+        handleCrud($pdo, 'payments', $method, $id, $input);
+
+        // 3. Recalcular estado
+        if ($pId) recalculatePlayerStatus($pdo, $pId);
         exit;
     } else {
         handleCrud($pdo, 'payments', $method, $id, $input);

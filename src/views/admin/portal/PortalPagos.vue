@@ -278,9 +278,23 @@ const exportReceipt = (payment) => {
                                 <tr v-for="h in childHistory" :key="h.id">
                                     <td>{{ h.fecha }}</td>
                                     <td>{{
-                                        ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre','Noviembre','Diciembre'][h.mes
-                                        - 1] }} / {{ h.year || '2025' }}</td>
-                                    <td>{{ h.tipo }}</td>
+                                        h.tipo === 'Inscripción' 
+                                        ? 'N/A' 
+                                        : (['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre','Noviembre','Diciembre'][h.mes - 1] || '---') 
+                                        + ' / ' + (h.year || '2025') 
+                                    }}</td>
+                                    <td>
+                                        <span class="badge" :style="{ 
+                                            backgroundColor: h.tipo === 'Inscripción' ? 'rgba(52, 152, 219, 0.1)' : 'rgba(46, 204, 113, 0.1)',
+                                            color: h.tipo === 'Inscripción' ? '#2980b9' : '#27ae60',
+                                            padding: '4px 8px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 'bold'
+                                        }">
+                                            {{ h.tipo }}
+                                        </span>
+                                    </td>
                                     <td><strong>${{ Number(h.valor).toLocaleString() }}</strong></td>
                                 </tr>
                                 <tr v-if="childHistory.length === 0">

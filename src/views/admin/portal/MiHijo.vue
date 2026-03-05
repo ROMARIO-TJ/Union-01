@@ -64,9 +64,20 @@ const selectedCategory = computed(() =>
   categoryStore.categories.find(c => c.id == formData.value.categoryId || c.name === formData.value.category)
 );
 
-const upcomingMatches = computed(() =>
-  matchesStore.getUpcomingMatches?.()?.slice(0, 3) ?? []
-);
+const upcomingMatches = computed(() => {
+  if (!childData.value) return [];
+  const catName = childData.value.categoryName?.toLowerCase() || '';
+  if (!catName) return [];
+
+  return matchesStore.matches
+    .filter(m => {
+      const matchCat = m.category?.toLowerCase() || '';
+      // Emparejamiento exacto o contenido relevante
+      return matchCat.includes(catName) || catName.includes(matchCat);
+    })
+    .filter(m => m.status === 'scheduled')
+    .slice(0, 3);
+});
 
 const paymentStatus = computed(() => {
   return childData.value?.paymentStatus ?? 'Pendiente';
@@ -106,39 +117,34 @@ onMounted(async () => {
 
   // Check for saved children
   const key = `children_${authStore.parentUser?.id || authStore.parentUser?.email}`;
-  const savedChildren = localStorage.getItem(key);
-  if (savedChildren) {
-    children.value = JSON.parse(savedChildren);
-  }
 
   // SYNC WITH SERVER: Fetch official data
   if (authStore.parentUser?.email) {
     const serverChildren = await playersStore.fetchPlayersByParent(authStore.parentUser.email);
-    if (serverChildren && serverChildren.length > 0) {
-      // Map server data to match our portal structure
-      children.value = serverChildren.map(p => {
-        const cat = categoryStore.categories.find(c => c.name === p.category || c.id == p.categoryId);
-        return {
-          id: p.id,
-          playerName: p.name || p.fullName,
-          birthDate: p.birthDate,
-          categoryId: p.categoryId,
-          categoryName: p.category || cat?.name || 'Sin categoría',
-          coach: cat?.coach || 'Por asignar',
-          schedule: cat?.schedule || '',
-          time: cat?.time || '',
-          position: p.position || '',
-          notes: p.notes || '',
-          registrationDate: p.registrationDate || 'Reciente',
-          paymentStatus: p.paymentStatus || 'Pendiente',
-          parentName: p.parentName || '',
-          parentEmail: p.parentEmail || authStore.parentUser.email,
-          photo: p.photo || ''
-        };
-      });
-      // Update local cache
-      localStorage.setItem(key, JSON.stringify(children.value));
-    }
+    // Map server data to match our portal structure
+    children.value = (serverChildren || []).map(p => {
+      const cat = categoryStore.categories.find(c => c.name === p.category || c.id == p.categoryId);
+      return {
+        id: p.id,
+        playerName: p.fullName || p.name,
+        birthDate: p.birthDate,
+        categoryId: p.categoryId,
+        categoryName: p.category || cat?.name || 'Sin categoría',
+        coach: cat?.coach || 'Por asignar',
+        schedule: cat?.schedule || '',
+        time: cat?.time || '',
+        position: p.position || '',
+        notes: p.notes || '',
+        registrationDate: p.registrationDate || 'Reciente',
+        paymentStatus: p.paymentStatus || 'Pendiente',
+        parentName: p.parentName || '',
+        parentEmail: p.parentEmail || authStore.parentUser.email,
+        photo: p.photo || '',
+        dni: p.dni || ''
+      };
+    });
+    // Update local cache
+    localStorage.setItem(key, JSON.stringify(children.value));
   }
 
   // Determine initial phase
@@ -242,6 +248,7 @@ const resetForm = () => {
   formData.value.position = '';
   formData.value.notes = '';
   formData.value.photo = '';
+  formData.value.dni = '';
   formData.value.dniImage = '';
   formData.value.medicalCertificate = '';
   calculatedAge.value = '';
@@ -295,7 +302,7 @@ const handleInscripcion = async () => {
   };
 
   try {
-    const response = await playersStore.addPlayer({
+    const payload = {
       ...formData.value,
       name: formData.value.fullName,
       parentEmail: authStore.parentUser?.email,
@@ -303,7 +310,14 @@ const handleInscripcion = async () => {
       status: isEditing.value ? childData.value.paymentStatus : 'Pendiente',
       registrationDate: childRegistry.registrationDate,
       dni: formData.value.dni
-    });
+    };
+
+    let response;
+    if (isEditing.value && childData.value?.id) {
+       response = await playersStore.updatePlayer(childData.value.id, payload);
+    } else {
+       response = await playersStore.addPlayer(payload);
+    }
 
     if (response.success) {
       const key = `children_${authStore.parentUser?.id || authStore.parentUser?.email}`;
@@ -342,11 +356,17 @@ const handleActualizar = () => {
     formData.value.position = childData.value.position;
     formData.value.notes = childData.value.notes;
     formData.value.photo = childData.value.photo || '';
-    // Nota: en un sistema real cargaríamos los PDFs de nuevo aquí si fuera necesario
+    formData.value.dni = childData.value.dni || '';
     calculateAge();
   }
   currentStep.value = 1;
   fase.value = 'inscripcion';
+};
+
+const handleCancelar = () => {
+  isEditing.value = false;
+  resetForm();
+  fase.value = children.value.length > 0 ? 'panel' : 'inscripcion';
 };
 </script>
 
@@ -433,7 +453,10 @@ const handleActualizar = () => {
               </div>
             </div>
             <div class="form-actions">
-              <div class="spacer"></div>
+              <button v-if="isEditing || children.length > 0" type="button" @click="handleCancelar" class="btn-secondary">
+                <i class="fa-solid fa-xmark"></i> Cancelar
+              </button>
+              <div v-else class="spacer"></div>
               <button type="submit" class="btn-primary">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
             </div>
           </div>

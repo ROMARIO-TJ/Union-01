@@ -4,32 +4,21 @@ import { apiService } from '../services/api';
 
 export const usePlayersStore = defineStore('players', () => {
     const players = ref([]);
-
     const isLoading = ref(false);
     const error = ref(null);
 
-    // Inicializar sincronizando con el servidor
     const initPlayers = async () => {
         isLoading.value = true;
         error.value = null;
-
-        // Respaldo local
-        const savedPlayers = localStorage.getItem('club_players');
-        if (savedPlayers) {
-            players.value = JSON.parse(savedPlayers);
-        }
-
         try {
             const data = await apiService.request('players');
             if (data && Array.isArray(data)) {
-                // Normalización de campos para evitar problemas de nombres del servidor
                 players.value = data.map(p => ({
                     ...p,
                     fullName: p.fullName || p.name || p.playerName,
                     parentEmail: p.parentEmail || p.email,
                     paymentStatus: p.paymentStatus || p.paymentstatus || 'Pendiente'
                 }));
-                saveToLocalStorage();
             }
         } catch (err) {
             console.error('Error loading players:', err);
@@ -39,7 +28,6 @@ export const usePlayersStore = defineStore('players', () => {
         }
     };
 
-    // Agregar nuevo registro de jugador
     const addPlayer = async (playerData) => {
         isLoading.value = true;
         try {
@@ -57,11 +45,9 @@ export const usePlayersStore = defineStore('players', () => {
         }
     };
 
-    // Actualizar estado del jugador
     const updatePlayerStatus = async (id, status) => {
         isLoading.value = true;
         try {
-            // El backend usa PATCH para estatus en players
             const result = await apiService.request('players', 'PATCH', { id, status });
             if (result.status === 'success') {
                 await initPlayers();
@@ -75,7 +61,6 @@ export const usePlayersStore = defineStore('players', () => {
         return false;
     };
 
-    // Eliminar registro
     const deletePlayer = async (id) => {
         isLoading.value = true;
         try {
@@ -96,30 +81,21 @@ export const usePlayersStore = defineStore('players', () => {
         isLoading.value = true;
         try {
             const data = await apiService.request('players', 'GET', { parentEmail: email });
-            if (data && Array.isArray(data)) {
-                const normalized = data.map(p => ({
-                    ...p,
-                    fullName: p.fullName || p.name || p.playerName,
-                    parentEmail: p.parentEmail || p.email,
-                    paymentStatus: p.paymentStatus || p.paymentstatus || 'Pendiente'
-                }));
-                // Update players list with the fetched items (union for more efficiency?)
-                // For now, replacing or adding if not there
-                players.value = normalized;
-                return normalized;
-            }
+            const normalized = (Array.isArray(data) ? data : []).map(p => ({
+                ...p,
+                fullName: p.fullName || p.name || p.playerName,
+                parentEmail: p.parentEmail || p.email,
+                paymentStatus: p.paymentStatus || p.paymentstatus || 'Pendiente'
+            }));
+            players.value = normalized;
+            return normalized;
         } catch (err) {
             console.error('Error loading parent players:', err);
-            throw err; // Re-lanzar para que el componente lo atrape
+            players.value = [];
+            return [];
         } finally {
             isLoading.value = false;
         }
-        return [];
-    };
-
-    // Guardar en localStorage
-    const saveToLocalStorage = () => {
-        localStorage.setItem('club_players', JSON.stringify(players.value));
     };
 
     const updatePaymentStatus = async (id, paymentStatus) => {
@@ -134,60 +110,39 @@ export const usePlayersStore = defineStore('players', () => {
             }
         } catch (err) {
             console.error('Error updating payment status:', err);
-            throw err; // Re-lanzar para que el componente lo atrape
-        } finally {
-            isLoading.value = false;
-        }
-    };
-
-    const updateParentEmail = async (id, parentEmail) => {
-        isLoading.value = true;
-        try {
-            const result = await apiService.request('players', 'PATCH', { id, parentEmail });
-            if (result.status === 'success') {
-                await initPlayers();
-                return true;
-            } else {
-                throw new Error(result.message || 'Error al actualizar el correo');
-            }
-        } catch (err) {
-            console.error('Error updating parent email:', err);
             throw err;
         } finally {
             isLoading.value = false;
         }
     };
 
-    const updatePlayerDni = async (id, dni) => {
+    const updatePlayer = async (id, playerData) => {
         isLoading.value = true;
         try {
-            const result = await apiService.request('players', 'PATCH', { id, dni });
+            const result = await apiService.request('players', 'PATCH', { id, ...playerData });
             if (result.status === 'success') {
                 await initPlayers();
-                return true;
+                return { success: true };
             }
+            return { success: false, message: result.message || 'Error desconocido del servidor' };
         } catch (err) {
-            console.error('Error updating DNI:', err);
+            console.error('Error updating player:', err);
+            return { success: false, message: err.message };
         } finally {
             isLoading.value = false;
         }
-        return false;
+    };
+
+    const updateParentEmail = async (id, parentEmail) => {
+        return await updatePlayer(id, { parentEmail });
+    };
+
+    const updatePlayerDni = async (id, dni) => {
+        return await updatePlayer(id, { dni });
     };
 
     const updateSponsorship = async (id, sponsorshipData) => {
-        isLoading.value = true;
-        try {
-            const result = await apiService.request('players', 'PATCH', { id, ...sponsorshipData });
-            if (result.status === 'success') {
-                await initPlayers();
-                return true;
-            }
-        } catch (err) {
-            console.error('Error updating sponsorship:', err);
-        } finally {
-            isLoading.value = false;
-        }
-        return false;
+        return await updatePlayer(id, sponsorshipData);
     };
 
     // Inicializar al cargar
@@ -202,6 +157,7 @@ export const usePlayersStore = defineStore('players', () => {
         fetchPlayersByParent,
         updatePlayerStatus,
         updatePaymentStatus,
+        updatePlayer,
         updateParentEmail,
         updatePlayerDni,
         updateSponsorship,
