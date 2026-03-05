@@ -293,9 +293,11 @@ function handleSettings($pdo, $method, $input) {
         $stmt->execute([$key]);
         $row = $stmt->fetch();
         if ($row) {
-            echo $row['setting_value'];
+            // Deserializar el JSON guardado y devolverlo en el formato estándar {status, data}
+            $decoded = json_decode($row['setting_value'], true);
+            echo json_encode(['status' => 'success', 'data' => $decoded]);
         } else {
-            echo json_encode(null);
+            echo json_encode(['status' => 'success', 'data' => null]);
         }
     } 
     elseif ($method === 'POST') {

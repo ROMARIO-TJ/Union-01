@@ -79,7 +79,13 @@ function handleSettings($method, $conn) {
             $stmt = $conn->prepare("SELECT `value` FROM settings WHERE `key` = ?");
             $stmt->execute([$key]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo $row ? $row['value'] : 'null';
+            if ($row) {
+                // Deserializar el JSON guardado y devolverlo en el formato estándar {status, data}
+                $decoded = json_decode($row['value'], true);
+                echo json_encode(["status" => "success", "data" => $decoded]);
+            } else {
+                echo json_encode(["status" => "success", "data" => null]);
+            }
         } else {
              echo json_encode(["status" => "error", "message" => "Key required"]);
         }

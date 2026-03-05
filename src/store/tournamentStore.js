@@ -24,45 +24,60 @@ export const useTournamentStore = defineStore('tournament', () => {
         isLoading.value = true;
         error.value = null;
 
-        const saved = localStorage.getItem('union_standings');
-        if (saved) {
-            standings.value = JSON.parse(saved);
-        } else {
-            standings.value = categories.map(cat => {
-                const id = cat.toLowerCase().replace(/\s+/g, '-');
-                let teams = [];
+        // Estructura de datos por defecto (por si el servidor no tiene nada aún)
+        const defaultStandings = categories.map(cat => {
+            const id = cat.toLowerCase().replace(/\s+/g, '-');
+            let teams = [];
 
-                // Cargar datos iniciales para Sub 15
-                if (cat === 'Sub 15') {
-                    teams = [
-                        { name: 'CLUB ATLETICO LA GLORIA', played: 1, won: 1, drawn: 0, lost: 0, gf: 5, ga: 1, points: 3 },
-                        { name: 'ATLETAS DEL MAÑANA', played: 1, won: 1, drawn: 0, lost: 0, gf: 3, ga: 0, points: 3 },
-                        { name: 'UNION JAGUERA', played: 1, won: 1, drawn: 0, lost: 0, gf: 3, ga: 0, points: 3 },
-                        { name: 'LOS EMBAJADORES DE EL BANCO', played: 1, won: 1, drawn: 0, lost: 0, gf: 5, ga: 1, points: 3 },
-                        { name: 'INTER JUNIOR', played: 1, won: 1, drawn: 0, lost: 0, gf: 2, ga: 0, points: 3 },
-                        { name: 'MANCHESTER VALLEDUPAR', played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0 },
-                        { name: 'ACADEMIA VALLENATA', played: 1, won: 0, drawn: 0, lost: 1, gf: 1, ga: 5, points: 0 },
-                        { name: 'ALIANZA FC "B"', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 2, points: 0 },
-                        { name: 'FUTURAS ESTRELLAS', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 3, points: 0 },
-                        { name: 'ATLETICO CESAR FC', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 3, points: 0 },
-                        { name: '"B"ACAD VALLEDUPAR FC', played: 1, won: 0, drawn: 0, lost: 1, gf: 1, ga: 5, points: 0 }
-                    ].sort((a, b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
-                }
+            // Cargar datos iniciales para Sub 15
+            if (cat === 'Sub 15') {
+                teams = [
+                    { name: 'CLUB ATLETICO LA GLORIA', played: 1, won: 1, drawn: 0, lost: 0, gf: 5, ga: 1, points: 3 },
+                    { name: 'ATLETAS DEL MAÑANA', played: 1, won: 1, drawn: 0, lost: 0, gf: 3, ga: 0, points: 3 },
+                    { name: 'UNION JAGUERA', played: 1, won: 1, drawn: 0, lost: 0, gf: 3, ga: 0, points: 3 },
+                    { name: 'LOS EMBAJADORES DE EL BANCO', played: 1, won: 1, drawn: 0, lost: 0, gf: 5, ga: 1, points: 3 },
+                    { name: 'INTER JUNIOR', played: 1, won: 1, drawn: 0, lost: 0, gf: 2, ga: 0, points: 3 },
+                    { name: 'MANCHESTER VALLEDUPAR', played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0 },
+                    { name: 'ACADEMIA VALLENATA', played: 1, won: 0, drawn: 0, lost: 1, gf: 1, ga: 5, points: 0 },
+                    { name: 'ALIANZA FC "B"', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 2, points: 0 },
+                    { name: 'FUTURAS ESTRELLAS', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 3, points: 0 },
+                    { name: 'ATLETICO CESAR FC', played: 1, won: 0, drawn: 0, lost: 1, gf: 0, ga: 3, points: 0 },
+                    { name: '"B"ACAD VALLEDUPAR FC', played: 1, won: 0, drawn: 0, lost: 1, gf: 1, ga: 5, points: 0 }
+                ].sort((a, b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
+            }
 
-                return { id, category: cat, teams };
-            });
-        }
+            return { id, category: cat, teams };
+        });
 
+        // PRIMERO: Intentar cargar siempre desde el servidor
+        // El servidor es la fuente de verdad para que el hosting funcione
+        // para todos los visitantes
         try {
             const response = await apiService.request('settings', 'GET', { key: 'tournament_standings' });
             const data = response?.data;
 
             if (data && Array.isArray(data)) {
+                // ✅ El servidor tiene datos — usarlos como fuente principal
                 standings.value = data;
                 saveLocally();
+            } else {
+                // El servidor no tiene datos aún — usar localStorage o defaults
+                const saved = localStorage.getItem('union_standings');
+                if (saved) {
+                    standings.value = JSON.parse(saved);
+                } else {
+                    standings.value = defaultStandings;
+                }
             }
         } catch (err) {
-            console.error('Error loading tournament standings:', err);
+            console.error('Error loading tournament standings from server:', err);
+            // FALLBACK: si el servidor falla, usar localStorage como respaldo de emergencia
+            const saved = localStorage.getItem('union_standings');
+            if (saved) {
+                standings.value = JSON.parse(saved);
+            } else {
+                standings.value = defaultStandings;
+            }
         } finally {
             isLoading.value = false;
         }
@@ -131,10 +146,12 @@ export const useTournamentStore = defineStore('tournament', () => {
                 normalize(m.category) === normalize(categoryStandings.category)
             );
 
-            categoryStandings.teams.forEach(team => {
-                team.played = 0; team.won = 0; team.drawn = 0; team.lost = 0;
-                team.gf = 0; team.ga = 0; team.points = 0;
-            });
+            // ✅ CORRECCIÓN: Reconstruir equipos completamente desde los partidos
+            // En lugar de intentar hacer match con nombres pre-registrados que pueden
+            // ser diferentes (ej: 'C.A LA GLORIA' vs 'CLUB ATLETICO LA GLORIA'),
+            // vaciamos la lista y la reconstruimos desde cero con los nombres exactos
+            // que están en los partidos.
+            categoryStandings.teams = [];
 
             catMatches.forEach(m => {
                 const homeScore = parseInt(m.homeScore);
