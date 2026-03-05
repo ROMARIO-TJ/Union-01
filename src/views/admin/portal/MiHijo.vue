@@ -295,7 +295,7 @@ const handleInscripcion = async () => {
   };
 
   try {
-    const success = await playersStore.addPlayer({
+    const response = await playersStore.addPlayer({
       ...formData.value,
       name: formData.value.fullName,
       parentEmail: authStore.parentUser?.email,
@@ -305,7 +305,7 @@ const handleInscripcion = async () => {
       dni: formData.value.dni
     });
 
-    if (success) {
+    if (response.success) {
       const key = `children_${authStore.parentUser?.id || authStore.parentUser?.email}`;
 
       if (isEditing.value) {
@@ -319,7 +319,7 @@ const handleInscripcion = async () => {
       fase.value = 'panel';
       isEditing.value = false;
     } else {
-      formError.value = 'Error al procesar la solicitud en el servidor.';
+      formError.value = response.message || 'Error al procesar la solicitud en el servidor.';
     }
   } catch (e) {
     console.error('Error saving player:', e);

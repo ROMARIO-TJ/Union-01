@@ -31,8 +31,18 @@ if (!$id && isset($input['id'])) {
     $id = $input['id'];
 }
 
-function response($status, $data = null) {
-    echo json_encode(['status' => $status, 'data' => $data]);
+function response($status, $payload = null) {
+    $res = ['status' => $status];
+    if ($status === 'error' && is_string($payload)) {
+        $res['message'] = $payload;
+    } else {
+        $res['data'] = $payload;
+    }
+    // Debug log for errors
+    if ($status === 'error') {
+        error_log("API Error: " . json_encode($res));
+    }
+    echo json_encode($res);
     exit;
 }
 
@@ -424,6 +434,15 @@ function handlePayments($pdo, $method, $id, $input) {
 
 function handlePlayers($pdo, $method, $id, $input) {
     try {
+        // Asegurar que la tabla existe (Auto-migración robusta)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS players (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            fullName VARCHAR(255) NOT NULL,
+            email VARCHAR(100),
+            status ENUM('Pendiente', 'Aceptado', 'Rechazado') DEFAULT 'Pendiente',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+
         if ($method === 'GET') {
             if ($id) {
                 $stmt = $pdo->prepare("SELECT * FROM players WHERE id = ?");
@@ -432,36 +451,22 @@ function handlePlayers($pdo, $method, $id, $input) {
                 echo json_encode($res ?: []);
             } else {
                 $parentEmail = $_GET['parentEmail'] ?? null;
-
-                // Restricción de seguridad: Validación de token
                 if ($parentEmail) {
                     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
                     $token = '';
-                    if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
-                        $token = $matches[1];
-                    }
+                    if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) $token = $matches[1];
 
                     $validToken = false;
                     if ($token) {
                         $stmtUser = $pdo->prepare("SELECT email, role FROM users WHERE token = ?");
                         $stmtUser->execute([$token]);
                         $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
-                        
                         if ($user) {
                             $validToken = true;
-                            if ($user['role'] === 'padre_familia') {
-                                // FIJO DE SEGURIDAD: Un padre SOLO puede ver sus propios hijos
-                                $parentEmail = $user['email'];
-                            }
-                            // Si es admin, puede consultar cualquier parentEmail
+                            if ($user['role'] === 'padre_familia') $parentEmail = $user['email'];
                         }
                     }
-
-                    if (!$validToken) {
-                        // Bloquear consulta no autorizada
-                        echo json_encode([]);
-                        exit;
-                    }
+                    if (!$validToken) { echo json_encode([]); exit; }
 
                     $stmt = $pdo->prepare("SELECT * FROM players WHERE email = ? ORDER BY id DESC");
                     $stmt->execute([$parentEmail]);
@@ -474,30 +479,41 @@ function handlePlayers($pdo, $method, $id, $input) {
         }
 
         if ($method === 'PATCH' || $method === 'POST' || $method === 'PUT') {
-            // Asegurar que las columnas existen
-            try {
-                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS dni VARCHAR(50) DEFAULT NULL");
-                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS documentType VARCHAR(50) DEFAULT NULL");
-                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS sponsorship ENUM('none', 'partial', 'full') DEFAULT 'none'");
-                $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS custom_fee DECIMAL(15,2) DEFAULT NULL");
-            } catch (\Throwable $t) { 
+            $columnsToEnsure = [
+                "dni VARCHAR(50) DEFAULT NULL",
+                "documentType VARCHAR(50) DEFAULT NULL",
+                "sponsorship ENUM('none', 'partial', 'full') DEFAULT 'none'",
+                "custom_fee DECIMAL(15,2) DEFAULT NULL",
+                "paymentStatus VARCHAR(50) DEFAULT 'Pendiente'",
+                "position VARCHAR(100) DEFAULT NULL",
+                "notes TEXT DEFAULT NULL",
+                "categoryId INT DEFAULT NULL",
+                "photo VARCHAR(255) DEFAULT NULL",
+                "dniImage VARCHAR(255) DEFAULT NULL",
+                "medicalCertificate VARCHAR(255) DEFAULT NULL",
+                "parentName VARCHAR(255) DEFAULT NULL",
+                "phone VARCHAR(50) DEFAULT NULL",
+                "address TEXT DEFAULT NULL",
+                "birthDate DATE DEFAULT NULL",
+                "registrationDate DATE DEFAULT NULL",
+                "age INT DEFAULT NULL",
+                "category VARCHAR(100) DEFAULT NULL"
+            ];
+
+            foreach ($columnsToEnsure as $colDef) {
                 try {
-                    $pdo->exec("ALTER TABLE players ADD dni VARCHAR(50) DEFAULT NULL");
-                    $pdo->exec("ALTER TABLE players ADD documentType VARCHAR(50) DEFAULT NULL");
-                    $pdo->exec("ALTER TABLE players ADD sponsorship ENUM('none', 'partial', 'full') DEFAULT 'none'");
-                    $pdo->exec("ALTER TABLE players ADD custom_fee DECIMAL(15,2) DEFAULT NULL");
-                } catch (\Throwable $t2) {}
+                    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS $colDef");
+                } catch (\Throwable $t) {
+                    try { $pdo->exec("ALTER TABLE players ADD $colDef"); } catch (\Throwable $t2) {}
+                }
             }
         }
 
         if ($method === 'PATCH') {
             if (!$id) response('error', 'ID requerido');
-            
             $fields = [];
             $params = [];
-            
-            // Mapeo de campos permitidos para PATCH
-            $allowed = ['status', 'dni', 'paymentStatus', 'parentEmail', 'sponsorship', 'custom_fee'];
+            $allowed = ['status', 'dni', 'paymentStatus', 'parentEmail', 'sponsorship', 'custom_fee', 'position', 'notes', 'fullName', 'category', 'birthDate', 'photo', 'categoryId'];
             foreach ($allowed as $key) {
                 if (isset($input[$key])) {
                     $col = ($key === 'parentEmail') ? 'email' : $key;
@@ -505,28 +521,103 @@ function handlePlayers($pdo, $method, $id, $input) {
                     $params[] = $input[$key];
                 }
             }
-            
-            if (empty($fields)) response('error', 'No se proporcionó ningún campo para actualizar');
-            
+            if (empty($fields)) response('error', 'No hay campos para actualizar');
             $sql = "UPDATE players SET " . implode(', ', $fields) . " WHERE id = ?";
             $params[] = $id;
-            
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            
-            // Si se cambió algo financiero, recalcular estado
             if (isset($input['sponsorship']) || isset($input['custom_fee']) || isset($input['category'])) {
                 recalculatePlayerStatus($pdo, $id);
             }
-            
-            success("Jugador actualizado correctamente");
+            success("Jugador actualizado");
         } 
-        else {
+        elseif ($method === 'POST') {
+            $data = [];
+            $mapping = [
+                'fullName' => 'fullName', 'name' => 'fullName', 'playerName' => 'fullName',
+                'age' => 'age', 'category' => 'category', 'categoryName' => 'category',
+                'birthDate' => 'birthDate', 'registrationDate' => 'registrationDate',
+                'status' => 'status', 'paymentStatus' => 'paymentStatus',
+                'photo' => 'photo', 'dniImage' => 'dniImage', 'documentType' => 'documentType',
+                'medicalCertificate' => 'medicalCertificate', 'parentName' => 'parentName',
+                'phone' => 'phone', 'email' => 'email', 'parentEmail' => 'email',
+                'address' => 'address', 'dni' => 'dni', 'position' => 'position',
+                'notes' => 'notes', 'categoryId' => 'categoryId',
+                'sponsorship' => 'sponsorship', 'custom_fee' => 'custom_fee'
+            ];
+
+            foreach ($mapping as $frontendKey => $dbCol) {
+                if (isset($input[$frontendKey]) && $input[$frontendKey] !== '') {
+                    $data[$dbCol] = $input[$frontendKey];
+                }
+            }
+
+            if (empty($data['fullName'])) {
+                 $receivedKeys = is_array($input) ? implode(', ', array_keys($input)) : 'Body vacio o no es array';
+                 response('error', 'El nombre del jugador es obligatorio. Recibido: ' . $receivedKeys);
+            }
+
+            // Valores por defecto
+            if (!isset($data['status'])) $data['status'] = 'Pendiente';
+            if (!isset($data['paymentStatus'])) $data['paymentStatus'] = 'Pendiente';
+
+            $q = $pdo->query("DESCRIBE players");
+            $existingCols = $q->fetchAll(PDO::FETCH_COLUMN);
+            $filteredData = [];
+            foreach($data as $col => $val) {
+                if (in_array($col, $existingCols)) $filteredData[$col] = $val;
+            }
+
+            // INSERTAR JUGADOR MANUALMENTE PARA OBTENER ID
+            $keys = array_keys($filteredData);
+            $fieldsStr = implode(',', array_map(function($k) { return "`$k`"; }, $keys));
+            $placeholders = implode(',', array_fill(0, count($keys), '?'));
+            
+            $stmt = $pdo->prepare("INSERT INTO players ($fieldsStr) VALUES ($placeholders)");
+            $stmt->execute(array_values($filteredData));
+            $newPlayerId = $pdo->lastInsertId();
+
+            // --- AUTO-REGISTRO DE PAGOS INICIALES ---
+            // Si el registro viene de un proceso donde "ya pagó" (Inscripción + 1a mes)
+            try {
+                $category = $data['category'] ?? '';
+                $isComp = isCompetitive($category);
+                $fee = $isComp ? 20000 : 50000;
+                $currentMonth = (int)date('n');
+                $currentYear = (int)date('Y');
+                $today = date('Y-m-d');
+
+                // 1. Pago Inscripción
+                $stmtP1 = $pdo->prepare("INSERT INTO payments (jugadorId, tipo, mes, year, valor, metodo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmtP1->execute([$newPlayerId, 'Inscripción', $currentMonth, $currentYear, $fee, 'Efectivo', $today]);
+
+                // 2. Pago Mensualidad / Suscripción
+                $tipoP2 = $isComp ? 'Suscripción Club' : 'Mensualidad';
+                $stmtP2 = $pdo->prepare("INSERT INTO payments (jugadorId, tipo, mes, year, valor, metodo, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmtP2->execute([$newPlayerId, $tipoP2, $currentMonth, $currentYear, $fee, 'Efectivo', $today]);
+
+                // 3. Si es competitivo, marcar en club_subscriptions
+                if ($isComp) {
+                    $pid1 = $pdo->lastInsertId(); // Este es el ID del pago P2
+                    $stmtS = $pdo->prepare("INSERT INTO club_subscriptions (player_id, month, year, amount, status, payment_id) VALUES (?, ?, ?, ?, 'Pagado', ?)");
+                    $stmtS->execute([$newPlayerId, $currentMonth, $currentYear, $fee, $pid1]);
+                }
+
+                // Recalcular estado para ponerlo "Al Día"
+                recalculatePlayerStatus($pdo, $newPlayerId);
+
+            } catch (Exception $e_pay) {
+                // Si falla el auto-pago, no bloqueamos la creación del jugador, solo lo reportamos por log
+                error_log("Error auto-registro pagos: " . $e_pay->getMessage());
+            }
+
+            success("Registro creado exitosamente");
+        } else {
             handleCrud($pdo, 'players', $method, $id, $input);
         }
-    } catch (PDOException $e) {
+    } catch (Throwable $e) {
         http_response_code(400);
-        response('error', 'Error en Jugadores: ' . $e->getMessage());
+        response('error', "Error en Jugadores: " . $e->getMessage() . " (L" . $e->getLine() . ")");
     }
 }
 

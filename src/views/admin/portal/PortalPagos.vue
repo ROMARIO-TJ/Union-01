@@ -24,6 +24,9 @@ const isCompetitive = (categoryName) => {
 
 onMounted(async () => {
     if (authStore.parentUser?.email) {
+        // Fetch only children belonging to this parent for security and precision
+        await playersStore.fetchPlayersByParent(authStore.parentUser.email);
+    } else {
         await playersStore.initPlayers();
     }
 });

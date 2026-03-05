@@ -22,9 +22,11 @@ export const usePlayersStore = defineStore('players', () => {
         try {
             const data = await apiService.request('players');
             if (data && Array.isArray(data)) {
-                // Normalización de campos para evitar problemas de mayúsculas/minúsculas del servidor
+                // Normalización de campos para evitar problemas de nombres del servidor
                 players.value = data.map(p => ({
                     ...p,
+                    fullName: p.fullName || p.name || p.playerName,
+                    parentEmail: p.parentEmail || p.email,
                     paymentStatus: p.paymentStatus || p.paymentstatus || 'Pendiente'
                 }));
                 saveToLocalStorage();
@@ -44,14 +46,15 @@ export const usePlayersStore = defineStore('players', () => {
             const result = await apiService.request('players', 'POST', playerData);
             if (result.status === 'success') {
                 await initPlayers();
-                return true;
+                return { success: true };
             }
+            return { success: false, message: result.message || 'Error desconocido del servidor' };
         } catch (err) {
             console.error('Error adding player:', err);
+            return { success: false, message: err.message };
         } finally {
             isLoading.value = false;
         }
-        return false;
     };
 
     // Actualizar estado del jugador
@@ -94,13 +97,20 @@ export const usePlayersStore = defineStore('players', () => {
         try {
             const data = await apiService.request('players', 'GET', { parentEmail: email });
             if (data && Array.isArray(data)) {
-                return data.map(p => ({
+                const normalized = data.map(p => ({
                     ...p,
+                    fullName: p.fullName || p.name || p.playerName,
+                    parentEmail: p.parentEmail || p.email,
                     paymentStatus: p.paymentStatus || p.paymentstatus || 'Pendiente'
                 }));
+                // Update players list with the fetched items (union for more efficiency?)
+                // For now, replacing or adding if not there
+                players.value = normalized;
+                return normalized;
             }
         } catch (err) {
             console.error('Error loading parent players:', err);
+            throw err; // Re-lanzar para que el componente lo atrape
         } finally {
             isLoading.value = false;
         }
