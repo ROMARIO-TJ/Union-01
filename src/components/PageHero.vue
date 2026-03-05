@@ -4,7 +4,7 @@
         <div class="hero-content-wrapper">
             <div class="hero-content">
                 <div class="hero-badge">
-                    <span class="material-symbols-outlined">star</span>
+                    <i class="fa-solid fa-circle-check badge-icon"></i>
                     {{ heroData.tagline }}
                 </div>
                 <h1 class="hero-title" v-html="formattedTitle"></h1>
@@ -97,24 +97,32 @@ const heroStyle = computed(() => {
 .hero-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: rgba(17, 212, 66, 0.15);
-    border: 1px solid rgba(17, 212, 66, 0.25);
-    border-radius: 9999px;
-    color: var(--primary-color);
-    font-size: 0.875rem;
+    gap: 0.7rem;
+    padding: 0.5rem 1.25rem;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.2em;
     margin-bottom: 2rem;
     opacity: 0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     animation: fadeInUp 0.8s ease-out 0.3s forwards;
 }
 
-.hero-badge .material-symbols-outlined {
+.badge-icon {
+    color: var(--primary-color);
     font-size: 1rem;
+    filter: drop-shadow(0 0 8px rgba(17, 212, 66, 0.6));
 }
+
+
 
 .hero-title {
     font-size: 5.5rem;

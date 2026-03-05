@@ -84,10 +84,7 @@ onUnmounted(() => {
                             <div class="hero__content">
                                 <!-- Badge -->
                                 <div class="hero-badge">
-                                    <span class="pulse-dot">
-                                        <span class="ping"></span>
-                                        <span class="dot"></span>
-                                    </span>
+                                    <i class="fa-solid fa-star badge-icon"></i>
                                     Temporada 2026 Abierta
                                 </div>
 
@@ -124,7 +121,10 @@ onUnmounted(() => {
                     <div class="slide-content-wrapper">
                         <div class="container hero__container">
                             <div class="hero__content text-center">
-                                <div class="hero-badge mx-auto">Próximo Encuentro</div>
+                                <div class="hero-badge mx-auto">
+                                    <i class="fa-solid fa-calendar-check badge-icon"></i>
+                                    Próximo Encuentro
+                                </div>
 
                                 <div v-if="nextMatch" class="match-display">
                                     <h2 class="match-teams">
@@ -247,48 +247,31 @@ onUnmounted(() => {
     margin: 0 auto;
 }
 
-/* Badge */
+/* Badge Design - More Premium Glassmorphism */
 .hero-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.75rem;
-    background: rgba(17, 212, 66, 0.2);
-    border: 1px solid rgba(17, 212, 66, 0.3);
-    border-radius: 9999px;
-    color: var(--primary-color);
-    font-size: 0.75rem;
+    gap: 0.6rem;
+    padding: 0.4rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 3px solid var(--primary-color);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 1.5rem;
+    letter-spacing: 0.15em;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.pulse-dot {
-    position: relative;
-    display: flex;
-    height: 8px;
-    width: 8px;
-}
-
-.ping {
-    animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
-    position: absolute;
-    display: inline-flex;
-    height: 100%;
-    width: 100%;
-    border-radius: 9999px;
-    background-color: var(--primary-color);
-    opacity: 0.75;
-}
-
-@keyframes ping {
-
-    75%,
-    100% {
-        transform: scale(2);
-        opacity: 0;
-    }
+.badge-icon {
+    color: var(--primary-color);
+    font-size: 0.9rem;
+    filter: drop-shadow(0 0 5px rgba(17, 212, 66, 0.5));
 }
 
 .dot {
@@ -312,14 +295,16 @@ onUnmounted(() => {
     line-height: 1.1;
     margin-bottom: 1.5rem;
     color: #fff;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .hero__subtitle {
     font-size: 1.25rem;
-    color: #cbd5e1;
-    max-width: 600px;
+    color: #e2e8f0;
+    max-width: 650px;
     line-height: 1.6;
     margin-bottom: 2.5rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 /* Buttons */

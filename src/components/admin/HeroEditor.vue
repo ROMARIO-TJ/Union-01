@@ -1,17 +1,19 @@
 <template>
-    <div class="manager-card hero-editor-card">
+    <div class="manager-card hero-editor-card" :class="{ 'is-open': !isCollapsed }">
         <div class="card-header" @click="isCollapsed = !isCollapsed">
             <div class="header-left">
-                <i class="fa-solid fa-heading"></i>
+                <i class="fa-solid fa-image-portrait hero-icon"></i>
                 <h3>Personalizar Cabecera (Hero)</h3>
             </div>
-            <i class="fa-solid" :class="isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+            <div class="header-right">
+                <span v-if="hasChanges" class="changes-dot"></span>
+                <i class="fa-solid" :class="isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+            </div>
         </div>
 
         <transition name="slide">
             <div v-show="!isCollapsed" class="card-body">
-                <p class="helper-text">Edita el título, la frase y la imagen que aparecen en la parte superior de esta
-                    página.</p>
+                <p class="helper-text">Personaliza la imagen de impacto, el título y el mensaje de bienvenida para esta sección.</p>
 
                 <div class="form-grid">
                     <div class="form-group">
@@ -46,7 +48,7 @@
                         </span>
                     </transition>
                     <button @click="saveChanges" class="btn-admin btn-admin--primary" :disabled="!hasChanges">
-                        Guardar Cabecera
+                        Guardar Cambios
                     </button>
                 </div>
             </div>
@@ -124,32 +126,64 @@ const saveChanges = async () => {
 <style scoped>
 .hero-editor-card {
     margin-bottom: 2rem;
-    border: 2px solid var(--admin-accent);
+    border: 1px solid var(--admin-border);
+    border-left: 4px solid var(--admin-accent);
     overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.hero-editor-card.is-open {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
 }
 
 .card-header {
     cursor: pointer;
-    background: rgba(31, 167, 116, 0.05);
+    background: #fff;
     display: flex;
     justify-content: space-between;
-    transition: background 0.3s;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    transition: background 0.2s;
 }
 
 .card-header:hover {
-    background: rgba(31, 167, 116, 0.1);
+    background: #fafafa;
 }
 
 .header-left {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.8rem;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--admin-text-light);
+}
+
+.hero-icon {
+    font-size: 1.2rem;
+    color: var(--admin-accent);
+}
+
+.changes-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--admin-warning);
+    border-radius: 50%;
 }
 
 .helper-text {
     font-size: 0.85rem;
     color: var(--admin-text-light);
     margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 6px;
+    border-left: 2px solid #ddd;
 }
 
 .form-grid {
@@ -170,6 +204,8 @@ const saveChanges = async () => {
     justify-content: flex-end;
     align-items: center;
     gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--admin-border);
 }
 
 .save-status {
@@ -179,13 +215,19 @@ const saveChanges = async () => {
 }
 
 .btn-icon-only {
-    width: 45px;
-    height: 45px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0;
     background: #f3f4f6;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.btn-icon-only:hover {
+    background: #e5e7eb;
 }
 
 .is-uploading {
@@ -196,16 +238,14 @@ const saveChanges = async () => {
 /* Transitions */
 .slide-enter-active,
 .slide-leave-active {
-    transition: all 0.3s ease-out;
-    max-height: 500px;
+    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+    max-height: 1000px;
 }
 
 .slide-enter-from,
 .slide-leave-to {
     max-height: 0;
     opacity: 0;
-    padding-top: 0;
-    padding-bottom: 0;
 }
 
 @media (max-width: 768px) {
