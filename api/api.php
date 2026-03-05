@@ -67,7 +67,7 @@ switch ($action) {
         handleCrud($pdo, 'expenses', $method, $id, $input);
         break;
     case 'gallery':
-        handleCrud($pdo, 'gallery', $method, $id, $input);
+        handleGallery($pdo, $method, $id, $input);
         break;
     case 'settings':
         handleSettings($pdo, $method, $input);
@@ -424,6 +424,55 @@ function handlePayments($pdo, $method, $id, $input) {
 
 function handlePlayers($pdo, $method, $id, $input) {
     try {
+        if ($method === 'GET') {
+            if ($id) {
+                $stmt = $pdo->prepare("SELECT * FROM players WHERE id = ?");
+                $stmt->execute([$id]);
+                $res = $stmt->fetch(PDO::FETCH_ASSOC);
+                echo json_encode($res ?: []);
+            } else {
+                $parentEmail = $_GET['parentEmail'] ?? null;
+
+                // Restricción de seguridad: Validación de token
+                if ($parentEmail) {
+                    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+                    $token = '';
+                    if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+                        $token = $matches[1];
+                    }
+
+                    $validToken = false;
+                    if ($token) {
+                        $stmtUser = $pdo->prepare("SELECT email, role FROM users WHERE token = ?");
+                        $stmtUser->execute([$token]);
+                        $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($user) {
+                            $validToken = true;
+                            if ($user['role'] === 'padre_familia') {
+                                // FIJO DE SEGURIDAD: Un padre SOLO puede ver sus propios hijos
+                                $parentEmail = $user['email'];
+                            }
+                            // Si es admin, puede consultar cualquier parentEmail
+                        }
+                    }
+
+                    if (!$validToken) {
+                        // Bloquear consulta no autorizada
+                        echo json_encode([]);
+                        exit;
+                    }
+
+                    $stmt = $pdo->prepare("SELECT * FROM players WHERE email = ? ORDER BY id DESC");
+                    $stmt->execute([$parentEmail]);
+                } else {
+                    $stmt = $pdo->query("SELECT * FROM players ORDER BY id DESC");
+                }
+                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+            }
+            exit;
+        }
+
         if ($method === 'PATCH' || $method === 'POST' || $method === 'PUT') {
             // Asegurar que las columnas existen
             try {
@@ -481,14 +530,89 @@ function handlePlayers($pdo, $method, $id, $input) {
     }
 }
 
+function handleGallery($pdo, $method, $id, $input) {
+    try {
+        $pdo->exec("ALTER TABLE gallery ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE gallery ADD COLUMN IF NOT EXISTS type ENUM('photo', 'video') DEFAULT 'photo'");
+        $pdo->exec("ALTER TABLE gallery ADD COLUMN IF NOT EXISTS videoUrl VARCHAR(255) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE gallery ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT 'fa-solid fa-image'");
+    } catch (\Throwable $t) { /* silent fail */ }
+
+    if ($method === 'GET') {
+        if ($id) {
+            $stmt = $pdo->prepare("SELECT * FROM gallery WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode($stmt->fetch(PDO::FETCH_ASSOC) ?: []);
+        } else {
+            $stmt = $pdo->query("SELECT * FROM gallery ORDER BY id DESC");
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $normalized = array_map(function($item) {
+                // Return generic fields for frontend
+                $item['image'] = $item['url'] ?? '';
+                $item['title'] = $item['title'] ?? $item['caption'] ?? '';
+                return $item;
+            }, $data);
+            echo json_encode($normalized);
+        }
+    } elseif ($method === 'POST') {
+        $url = $input['url'] ?? $input['image'] ?? '';
+        $title = $input['title'] ?? $input['caption'] ?? '';
+        $type = $input['type'] ?? 'photo';
+        $category = $input['category'] ?? 'Todas';
+        $icon = $input['icon'] ?? 'fa-solid fa-image';
+        $videoUrl = $input['videoUrl'] ?? '';
+        
+        // Comprobar si existe la columna title o caption
+        $stmt = $pdo->prepare("INSERT INTO gallery (url, title, category, type, icon, videoUrl) VALUES (?, ?, ?, ?, ?, ?)");
+        try {
+            $stmt->execute([$url, $title, $category, $type, $icon, $videoUrl]);
+        } catch (PDOException $e) {
+            // Fallback para schema antiguo manual si MySQL falla por title
+            $stmt = $pdo->prepare("INSERT INTO gallery (url, caption, category, type, icon, videoUrl) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$url, $title, $category, $type, $icon, $videoUrl]);
+        }
+        success("Media agregada a galería");
+    } elseif ($method === 'PUT' || $method === 'PATCH') {
+        if (!$id) response('error', 'ID requerido');
+        $url = $input['url'] ?? $input['image'] ?? '';
+        $title = $input['title'] ?? $input['caption'] ?? '';
+        $type = $input['type'] ?? 'photo';
+        $category = $input['category'] ?? 'Todas';
+        $icon = $input['icon'] ?? 'fa-solid fa-image';
+        $videoUrl = $input['videoUrl'] ?? '';
+        
+        try {
+            $stmt = $pdo->prepare("UPDATE gallery SET url=?, title=?, category=?, type=?, icon=?, videoUrl=? WHERE id=?");
+            $stmt->execute([$url, $title, $category, $type, $icon, $videoUrl, $id]);
+        } catch (PDOException $e) {
+            $stmt = $pdo->prepare("UPDATE gallery SET url=?, caption=?, category=?, type=?, icon=?, videoUrl=? WHERE id=?");
+            $stmt->execute([$url, $title, $category, $type, $icon, $videoUrl, $id]);
+        }
+        success("Media actualizada");
+    } elseif ($method === 'DELETE') {
+        if (!$id) response('error', 'ID requerido');
+        $stmt = $pdo->prepare("DELETE FROM gallery WHERE id = ?");
+        $stmt->execute([$id]);
+        success("Media eliminada");
+    }
+}
+
 function handleSettings($pdo, $method, $input) {
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+            `key` VARCHAR(100) PRIMARY KEY,
+            `value` LONGTEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )");
+    } catch (\Throwable $t) { /* silent fail */ }
+
     if ($method === 'GET') {
         $key = $_GET['key'] ?? '';
-        $stmt = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = ?");
+        $stmt = $pdo->prepare("SELECT `value` FROM settings WHERE `key` = ?");
         $stmt->execute([$key]);
         $row = $stmt->fetch();
         if ($row) {
-            echo $row['setting_value'];
+            echo $row['value'];
         } else {
             echo json_encode(null);
         }
@@ -500,7 +624,7 @@ function handleSettings($pdo, $method, $input) {
         $key = $input['key'];
         $value = is_array($input['value']) ? json_encode($input['value']) : $input['value'];
         
-        $stmt = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?");
         $stmt->execute([$key, $value, $value]);
         success("Configuración guardada");
     }
@@ -508,6 +632,11 @@ function handleSettings($pdo, $method, $input) {
 
 function handleAuth($pdo, $method, $input) {
     if ($method !== 'POST') response('error', 'Método no permitido');
+
+    // Make sure token column exists
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS token VARCHAR(255) DEFAULT NULL");
+    } catch (\Throwable $t) { /* silent fail */ }
     
     $email = $input['email'] ?? '';
     $password = $input['password'] ?? '';
@@ -520,24 +649,27 @@ function handleAuth($pdo, $method, $input) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user) {
-            // Usuario existe, actualizar google_id si es necesario
-            if (!$user['google_id']) {
-                $upd = $pdo->prepare("UPDATE users SET google_id = ? WHERE id = ?");
-                $upd->execute([$google_id, $user['id']]);
-            }
+            // Usuario existe, actualizar google_id si es necesario y generar token
+            $token = bin2hex(random_bytes(32));
+            $upd = $pdo->prepare("UPDATE users SET google_id = ?, token = ? WHERE id = ?");
+            $upd->execute([$google_id, $token, $user['id']]);
+            
             unset($user['password']);
+            $user['token'] = $token;
             echo json_encode(['status' => 'success', 'user' => $user]);
         } else {
             // Usuario nuevo de Google (Registro automático)
             $generatedUsername = explode('@', $email)[0] . '_' . rand(100, 999);
-            $stmt = $pdo->prepare("INSERT INTO users (name, email, google_id, role, photo, username) VALUES (?, ?, ?, ?, ?, ?)");
+            $token = bin2hex(random_bytes(32));
+            $stmt = $pdo->prepare("INSERT INTO users (name, email, google_id, role, photo, username, token) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['name'] ?? 'Usuario de Google',
                 $email,
                 $google_id,
                 'padre_familia',
                 $input['photo'] ?? null,
-                $generatedUsername
+                $generatedUsername,
+                $token
             ]);
             $newId = $pdo->lastInsertId();
             $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
@@ -555,6 +687,10 @@ function handleAuth($pdo, $method, $input) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user) {
+        $token = bin2hex(random_bytes(32));
+        $upd = $pdo->prepare("UPDATE users SET token = ? WHERE id = ?");
+        $upd->execute([$token, $user['id']]);
+        $user['token'] = $token;
         unset($user['password']);
         echo json_encode(['status' => 'success', 'user' => $user]);
     } else {

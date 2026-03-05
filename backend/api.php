@@ -76,10 +76,10 @@ function handleSettings($method, $conn) {
     if ($method === 'GET') {
         $key = $_GET['key'] ?? '';
         if ($key) {
-            $stmt = $conn->prepare("SELECT setting_value FROM site_settings WHERE setting_key = ?");
+            $stmt = $conn->prepare("SELECT `value` FROM settings WHERE `key` = ?");
             $stmt->execute([$key]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo $row ? $row['setting_value'] : 'null';
+            echo $row ? $row['value'] : 'null';
         } else {
              echo json_encode(["status" => "error", "message" => "Key required"]);
         }
@@ -87,7 +87,7 @@ function handleSettings($method, $conn) {
         $data = getJsonInput();
         $key = $data['key'];
         $value = json_encode($data['value']);
-        $stmt = $conn->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt = $conn->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?");
         $stmt->execute([$key, $value, $value]);
         echo json_encode(["status" => "success"]);
     }
@@ -134,8 +134,14 @@ function handleNews($method, $conn) {
 
 function handlePlayers($method, $conn) {
     if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT * FROM players ORDER BY registrationDate DESC");
-        $stmt->execute();
+        $parentEmail = $_GET['parentEmail'] ?? null;
+        if ($parentEmail) {
+            $stmt = $conn->prepare("SELECT * FROM players WHERE email = ? ORDER BY registrationDate DESC");
+            $stmt->execute([$parentEmail]);
+        } else {
+            $stmt = $conn->prepare("SELECT * FROM players ORDER BY registrationDate DESC");
+            $stmt->execute();
+        }
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
     } elseif ($method === 'POST') {
         $data = getJsonInput();

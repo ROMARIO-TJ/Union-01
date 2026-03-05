@@ -225,8 +225,22 @@ router.beforeEach(async (to, from) => {
     return { path: '/admin/portal/hijo' };
   }
 
-  // 3. Proteger rutas admin de padres de familia
-  // (Punto 1 ya asegura que si no es AdminAuthenticated no entre a rutas que requieren auth)
+  // 3. Proteger rutas admin de padres de familia y viceversa
+  const isStrictAdminRoute = to.path.startsWith('/admin') && !isParentRoute && to.name !== 'AdminLogin';
+
+  // Si intenta acceder a un panel administrativo estricto
+  if (isStrictAdminRoute) {
+    // Si no está logueado como admin o su rol real es padre_familia, bloquear
+    if (!authStore.isAdminAuthenticated || authStore.adminUser?.role === 'padre_familia') {
+      authStore.logout('admin'); // Limpiar posible caché corrupta
+      return { name: 'AdminLogin' };
+    }
+  }
+
+  // Si un padre intenta acceder a una ruta de admin tecleando la URL (fallback de seguridad)
+  if (isStrictAdminRoute && authStore.isParentAuthenticated && authStore.parentUser?.role === 'padre_familia') {
+    return { path: '/admin/portal/hijo' }; // Redirigir a SU área
+  }
 
   // 4. Check module access for non-admin routes
   if (!to.path.startsWith('/admin')) {

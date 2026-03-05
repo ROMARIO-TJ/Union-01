@@ -37,6 +37,23 @@ export const apiService = {
             headers: { 'Content-Type': 'application/json' }
         };
 
+        // Inject Authorization token if user is logged in
+        let token = null;
+        try {
+            const authAdmin = JSON.parse(localStorage.getItem('auth_admin'));
+            if (authAdmin && authAdmin.token) token = authAdmin.token;
+            if (!token) {
+                const authParent = JSON.parse(localStorage.getItem('auth_parent'));
+                if (authParent && authParent.token) token = authParent.token;
+            }
+        } catch (e) {
+            // Ignore parsing errors
+        }
+
+        if (token) {
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+
         if (data && effectiveMethod === 'POST') {
             options.body = JSON.stringify(data);
         }

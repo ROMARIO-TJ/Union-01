@@ -41,6 +41,9 @@ const closeMenu = () => {
           <li v-if="globalSettings.modules.categories.enabled">
             <router-link to="/categoria" @click="closeMenu">Categorías</router-link>
           </li>
+          <li v-if="globalSettings.modules.gallery.enabled">
+            <router-link to="/galeria" @click="closeMenu">Galería</router-link>
+          </li>
           <li v-if="globalSettings.modules.news.enabled"><router-link to="/noticias"
               @click="closeMenu">Noticias</router-link></li>
           <li v-if="globalSettings.modules.matches.enabled"><router-link to="/partidos"
