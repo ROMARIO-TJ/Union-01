@@ -15,7 +15,7 @@ export const useTournamentStore = defineStore('tournament', () => {
     //   ]
     // }
 
-    const categories = ['Sub 13', 'Sub 15', 'Sub 17', 'Sub 20', 'Primera C'];
+    const categories = ['Sub 13', 'Sub 15', 'Sub 17'];
 
     const isLoading = ref(false);
     const error = ref(null);

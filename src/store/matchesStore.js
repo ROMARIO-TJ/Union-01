@@ -10,22 +10,22 @@ export const useMatchesStore = defineStore('matches', () => {
     const initialMatches = [
         {
             id: 1,
-            category: 'Primera División',
+            category: 'Sub-15',
             homeTeam: 'Unión Jeguera',
             awayTeam: 'Dep. Rival',
-            date: '15 Ago',
+            date: '21 Feb',
             time: '16:00',
             stadium: 'Estadio Municipal',
             homeScore: null,
             awayScore: null,
-            status: 'scheduled' // scheduled, finished
+            status: 'scheduled'
         },
         {
             id: 2,
-            category: 'Sub-20',
+            category: 'Sub-13',
             homeTeam: 'Unión Jeguera',
             awayTeam: 'Atlético Futuro',
-            date: '16 Ago',
+            date: '21 Feb',
             time: '14:00',
             stadium: 'Cancha Auxiliar',
             homeScore: null,
@@ -34,10 +34,10 @@ export const useMatchesStore = defineStore('matches', () => {
         },
         {
             id: 3,
-            category: 'Femenino',
+            category: 'Sub-17',
             homeTeam: 'Unión Jeguera',
             awayTeam: 'Real F.C.',
-            date: '17 Ago',
+            date: '21 Feb',
             time: '18:30',
             stadium: 'Estadio Municipal',
             homeScore: null,
@@ -189,16 +189,28 @@ export const useMatchesStore = defineStore('matches', () => {
 
         if (months[monthAbbr] === undefined) return new Date(8640000000000000);
 
-        const date = new Date();
-        date.setMonth(months[monthAbbr]);
-        date.setDate(day);
-        date.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, 0, 0);
-
         const now = new Date();
-        if (date < now && (now.getMonth() > date.getMonth())) {
-            date.setFullYear(now.getFullYear() + 1);
-        }
-        return date;
+        const year = now.getFullYear();
+        
+        // Creamos la fecha base
+        const date = new Date(year, months[monthAbbr], day, parseInt(hours) || 0, parseInt(minutes) || 0, 0, 0);
+
+        // Estrategia: Elegir el año (pasado, actual o futuro) que esté más cerca de 'ahora'
+        // Esto es ideal para torneos que pueden cruzar de año o que están en curso.
+        const yearsToTry = [year - 1, year, year + 1];
+        let bestDate = date;
+        let minDiff = Math.abs(date - now);
+
+        yearsToTry.forEach(y => {
+            const d = new Date(y, months[monthAbbr], day, parseInt(hours) || 0, parseInt(minutes) || 0, 0, 0);
+            const diff = Math.abs(d - now);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestDate = d;
+            }
+        });
+
+        return bestDate;
     };
 
     const getFinishedMatches = () => {

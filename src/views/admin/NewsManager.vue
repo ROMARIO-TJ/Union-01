@@ -24,6 +24,7 @@ const formData = ref({
 
 const openCreateModal = () => {
   isEditing.value = false;
+  submitError.value = '';
   formData.value = {
     title: '',
     excerpt: '',
@@ -38,6 +39,7 @@ const openCreateModal = () => {
 
 const openEditModal = (item) => {
   isEditing.value = true;
+  submitError.value = '';
   currentId.value = item.id;
   formData.value = {
     ...item,
@@ -97,18 +99,34 @@ const triggerFileInput = () => {
   fileInput.value.click();
 };
 
+const submitError = ref('');
+const isSubmitting = ref(false);
+
 const handleSubmit = async () => {
+  submitError.value = '';
+  isSubmitting.value = true;
   const dataToSubmit = {
-    ...formData.value,
-    gallery: JSON.stringify(formData.value.gallery)
+    title: formData.value.title,
+    excerpt: formData.value.excerpt,
+    date_str: formData.value.date_str,
+    image: formData.value.image,
+    content: formData.value.content,
+    gallery: JSON.stringify(formData.value.gallery),
+    show_social: formData.value.show_social
   };
 
-  if (isEditing.value) {
-    await newsStore.updateNews(currentId.value, dataToSubmit);
-  } else {
-    await newsStore.addNews(dataToSubmit);
+  try {
+    if (isEditing.value) {
+      await newsStore.updateNews(currentId.value, dataToSubmit);
+    } else {
+      await newsStore.addNews(dataToSubmit);
+    }
+    closeModal();
+  } catch (err) {
+    submitError.value = err.message || 'Ocurrió un error al guardar la noticia. Intenta de nuevo.';
+  } finally {
+    isSubmitting.value = false;
   }
-  closeModal();
 };
 
 const deleteItem = async (id) => {
@@ -295,10 +313,16 @@ const deleteItem = async (id) => {
             </div>
 
             <div class="admin-modal-footer">
-              <button type="button" @click="closeModal" class="btn-admin" style="background: #eee;">Cancelar</button>
-              <button type="submit" class="btn-admin btn-admin--primary">
-                {{ isEditing ? 'Guardar Cambios' : 'Crear Noticia' }}
-              </button>
+              <p v-if="submitError" style="color: #e53e3e; font-size: 0.88rem; margin: 0 0 0.75rem; padding: 0.6rem 1rem; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 6px; width: 100%; text-align: left;">
+                <i class="fa-solid fa-circle-exclamation" style="margin-right: 0.4rem;"></i>{{ submitError }}
+              </p>
+              <div style="display: flex; gap: 0.75rem;">
+                <button type="button" @click="closeModal" class="btn-admin" style="background: #eee;">Cancelar</button>
+                <button type="submit" class="btn-admin btn-admin--primary" :disabled="isSubmitting" :style="{ opacity: isSubmitting ? 0.7 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }">
+                  <i v-if="isSubmitting" class="fa-solid fa-spinner fa-spin" style="margin-right: 0.4rem;"></i>
+                  {{ isSubmitting ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear Noticia') }}
+                </button>
+              </div>
             </div>
           </form>
         </div>

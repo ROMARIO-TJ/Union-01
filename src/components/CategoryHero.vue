@@ -80,8 +80,8 @@ onUnmounted(() => {
 .category-hero-carousel {
     position: relative;
     height: 85vh;
-    min-height: 500px;
-    max-height: 800px;
+    min-height: 550px;
+    max-height: 850px;
     width: 100%;
     overflow: hidden;
     background-color: #000;

@@ -60,9 +60,10 @@ const heroStyle = computed(() => {
 <style scoped>
 .general-hero {
     position: relative;
-    height: 100vh;
-    min-height: 450px;
-    background-position: center;
+    height: 85vh;
+    min-height: 500px;
+    max-height: 850px;
+    background-position: center center;
     background-size: cover;
     background-repeat: no-repeat;
     display: flex;
@@ -160,8 +161,8 @@ const heroStyle = computed(() => {
 @media (max-width: 992px) {
 
     .general-hero {
-        height: 90vh;
-
+        height: 60vh;
+        max-height: 550px;
     }
 
     .hero-title {

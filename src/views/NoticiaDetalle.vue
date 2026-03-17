@@ -19,7 +19,7 @@
             </div>
 
             <!-- Featured Image -->
-            <div class="article-image">
+            <div class="article-image" :style="{ '--bg-img': `url(${noticia.image})` }">
                 <img :src="noticia.image" :alt="noticia.title">
             </div>
 
@@ -60,17 +60,26 @@
                         </div>
 
                         <!-- Share Section -->
-                        <div v-if="parseInt(noticia.show_social) !== 0" class="share-section">
-                            <h3>Compartir esta noticia</h3>
+                        <div v-if="noticia.show_social == 1" class="share-section">
+                            <div class="share-header">
+                                <span class="share-line"></span>
+                                <h3>Compartir <span class="text-accent">Noticia</span></h3>
+                                <span class="share-line"></span>
+                            </div>
                             <div class="share-buttons">
-                                <button class="share-btn facebook">
+                                <button @click="shareNews('facebook')" class="share-btn facebook"
+                                    title="Compartir en Facebook">
                                     <i class="fa-brands fa-facebook-f"></i>
+                                    <span>Facebook</span>
                                 </button>
-                                <button class="share-btn twitter">
-                                    <i class="fa-brands fa-twitter"></i>
-                                </button>
-                                <button class="share-btn whatsapp">
+                                <button @click="shareNews('whatsapp')" class="share-btn whatsapp"
+                                    title="Compartir en WhatsApp">
                                     <i class="fa-brands fa-whatsapp"></i>
+                                    <span>WhatsApp</span>
+                                </button>
+                                <button @click="copyToClipboard" class="share-btn copy" title="Copiar Enlace">
+                                    <i class="fa-solid fa-link"></i>
+                                    <span>{{ copied ? '¡Copiado!' : 'Enlace' }}</span>
                                 </button>
                             </div>
                         </div>
@@ -159,6 +168,29 @@ const generateFullContent = () => {
 const navigateToNews = (id) => {
     router.push(`/noticias/${id}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+const copied = ref(false);
+const copyToClipboard = () => {
+    navigator.clipboard.writeText(window.location.href);
+    copied.value = true;
+    setTimeout(() => copied.value = false, 2000);
+};
+
+const shareNews = (platform) => {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(noticia.value.title);
+    let shareUrl = '';
+
+    if (platform === 'facebook') {
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+    } else if (platform === 'whatsapp') {
+        shareUrl = `https://api.whatsapp.com/send?text=${text}%20${url}`;
+    }
+
+    if (shareUrl) {
+        window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+    }
 };
 
 const getGallery = () => {
@@ -285,21 +317,62 @@ onMounted(() => {
 }
 
 /* FEATURED IMAGE */
+/* FEATURED IMAGE - Premium blurred background technique */
 .article-image {
     width: 100%;
-    height: 600px;
+    height: 500px;
     background: #000;
     overflow: hidden;
+    position: relative;
+    border-radius: 12px;
+    margin-bottom: 2rem;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
 }
 
+/* Background blurred layer */
+.article-image::before {
+    content: "";
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    background-image: var(--bg-img);
+    background-size: cover;
+    background-position: center;
+    filter: blur(20px) brightness(0.5);
+    z-index: 1;
+}
+
+/* Main image layer - keeps proportion */
 .article-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
+    position: relative;
+    z-index: 2;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain; /* No distortion, no forced crop */
+    box-shadow: 0 5px 30px rgba(0,0,0,0.5);
+}
+
+@media (max-width: 768px) {
+    .article-image {
+        height: auto;
+        aspect-ratio: 4 / 3;
+        border-radius: 0;
+        margin-left: -1rem;
+        margin-right: -1rem;
+        width: calc(100% + 2rem);
+    }
+    
+    .article-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
 }
 
 /* CONTENT */
@@ -552,56 +625,99 @@ onMounted(() => {
     font-weight: 700;
 }
 
-/* SHARE SECTION */
+/* SHARE SECTION - Premium look */
 .share-section {
-    margin-top: 4rem;
-    padding: 2.5rem;
+    margin-top: 5rem;
+    padding: 3rem 2rem;
     background: var(--bg-secondary);
-    border-radius: 20px;
+    border-radius: 24px;
     text-align: center;
-    border: 1px solid rgba(0, 0, 0, 0.03);
+    position: relative;
+    border: 1px solid rgba(17, 212, 66, 0.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+}
+
+.share-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.share-line {
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, transparent, rgba(16, 34, 21, 0.1), transparent);
+    max-width: 100px;
+}
+
+.social-toggle-group .toggle-text {
+    font-size: 0.95rem;
+    font-weight: 600;
 }
 
 .share-section h3 {
-    font-size: 1.2rem;
+    font-size: 1.35rem;
+    font-weight: 800;
     color: var(--text-primary);
-    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
 }
 
 .share-buttons {
     display: flex;
     justify-content: center;
-    gap: 1rem;
+    gap: 1.25rem;
+    flex-wrap: wrap;
 }
 
 .share-btn {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    border: none;
-    color: #fff;
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: transform 0.3s ease;
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 0.8rem;
+    padding: 0.8rem 1.8rem;
+    border-radius: 50px;
+    border: none;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.share-btn i {
+    font-size: 1.2rem;
 }
 
 .share-btn:hover {
-    transform: translateY(-3px);
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
 }
 
 .share-btn.facebook {
     background: #1877f2;
 }
 
-.share-btn.twitter {
-    background: #1da1f2;
-}
-
 .share-btn.whatsapp {
     background: #25d366;
+}
+
+.share-btn.copy {
+    background: #334155;
+}
+
+.share-btn.copy i {
+    color: var(--primary-color);
+}
+
+@media (max-width: 500px) {
+    .share-btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 /* RELATED NEWS */

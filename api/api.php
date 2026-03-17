@@ -58,6 +58,15 @@ function success($msg = "Operación exitosa") {
 
 switch ($action) {
     case 'news':
+        // Auto-migration for news table
+        try {
+            $pdo->exec("ALTER TABLE news ADD COLUMN IF NOT EXISTS gallery LONGTEXT DEFAULT NULL");
+            $pdo->exec("ALTER TABLE news ADD COLUMN IF NOT EXISTS show_social TINYINT DEFAULT 1");
+        } catch (\Throwable $t) {
+            // Fallback for servers with older MySQL
+            try { $pdo->exec("ALTER TABLE news ADD gallery LONGTEXT"); } catch (\Throwable $t2) {}
+            try { $pdo->exec("ALTER TABLE news ADD show_social TINYINT DEFAULT 1"); } catch (\Throwable $t3) {}
+        }
         handleCrud($pdo, 'news', $method, $id, $input);
         break;
     case 'matches':

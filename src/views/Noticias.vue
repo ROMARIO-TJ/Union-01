@@ -60,6 +60,7 @@ const newsStore = useNewsStore();
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 2.5rem;
+    align-items: stretch;
 }
 
 .news-card {
@@ -71,6 +72,7 @@ const newsStore = useNewsStore();
     border: 1px solid rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
 
 .news-card:hover {
@@ -83,17 +85,23 @@ const newsStore = useNewsStore();
 }
 
 .news-card__image {
-    height: 220px;
+    aspect-ratio: 3 / 2;
     overflow: hidden;
     position: relative;
+    width: 100%;
+    background: #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .news-card__image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
-    transition: transform 0.5s ease;
+    object-position: center 25%; /* Mejor para encuadres de futbol */
+    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    display: block;
 }
 
 .news-card:hover .news-card__image img {
@@ -217,8 +225,6 @@ const newsStore = useNewsStore();
         gap: 2rem;
     }
 
-    .news-card__image {
-        height: 200px;
-    }
+    /* aspect-ratio handles sizing automatically on mobile */
 }
 </style>

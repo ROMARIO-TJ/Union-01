@@ -129,12 +129,13 @@ export const useNewsStore = defineStore('news', () => {
                 await initNews();
                 return true;
             }
+            throw new Error(result?.message || 'No se pudo crear la noticia');
         } catch (err) {
             console.error('Error al añadir noticia:', err);
+            throw err;
         } finally {
             isLoading.value = false;
         }
-        return false;
     };
 
     const updateNews = async (id, updatedNews) => {
@@ -145,12 +146,13 @@ export const useNewsStore = defineStore('news', () => {
                 await initNews();
                 return true;
             }
+            throw new Error(result?.message || 'No se pudo actualizar la noticia');
         } catch (err) {
             console.error('Error al actualizar noticia:', err);
+            throw err;
         } finally {
             isLoading.value = false;
         }
-        return false;
     };
 
     const deleteNews = async (id) => {

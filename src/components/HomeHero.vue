@@ -173,8 +173,9 @@ onUnmounted(() => {
 <style scoped>
 .home-hero-carousel {
     position: relative;
-    height: 100vh;
+    height: 95vh;
     min-height: 700px;
+    max-height: 950px;
     width: 100%;
     overflow: hidden;
     background-color: #102215;
@@ -203,7 +204,7 @@ onUnmounted(() => {
     width: 100%;
     height: 100%;
     background-size: cover;
-    background-position: center;
+    background-position: center center;
     background-repeat: no-repeat;
     animation: zoomEffect 20s infinite alternate linear;
     z-index: 1;
