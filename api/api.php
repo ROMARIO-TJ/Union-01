@@ -223,10 +223,13 @@ function getPlayerDebtDetails($pdo, $playerId) {
     $activeMonths = $stmtMonths->fetchAll(PDO::FETCH_ASSOC);
 
     if ($isComp) {
-        // COMPETITIVOS: Suscripción Club
-        $fee = (float)($customFee ?? 20000);
-        if ($sponsorship === 'partial') $fee = $fee / 2;
-
+        // COMPETITIVOS: Suscripción Club (Base 20k)
+        $baseFee = (float)($customFee ?? 20000);
+        
+        // El usuario indica que para competitivos el descuento de hermanos
+        // puede variar o no aplicar igual. Por defecto respetamos el sponsorship.
+        if ($sponsorship === 'partial') $baseFee = $baseFee / 2;
+        
         foreach ($activeMonths as $mRecord) {
             $m = $mRecord['month'];
             $y = $mRecord['year'];
@@ -238,15 +241,17 @@ function getPlayerDebtDetails($pdo, $playerId) {
                 $stmtP = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE jugadorId = ? AND mes = ? AND tipo = 'Suscripción Club' AND year = ?");
                 $stmtP->execute([$playerId, $m, $y]);
                 if ($stmtP->fetchColumn() == 0) {
-                    $details['subscription_debt'] += $fee;
+                    $details['subscription_debt'] += $baseFee;
                     $details['has_debt'] = true;
                 }
             }
         }
     } else {
-        // ESCUELA: Inscripción (anual) + Mensualidad
-        $monthlyFee = (float)($customFee ?? 50000);
-        if ($sponsorship === 'partial') $monthlyFee = $monthlyFee / 2;
+        // ESCUELA: Mensualidad (Base 50k)
+        $baseFee = (float)($customFee ?? 50000);
+
+        // LÓGICA DE HERMANOS: $35,000 cada uno (Total $70,000)
+        if ($sponsorship === 'partial') $baseFee = 35000; 
 
         if ($sponsorship === 'none') {
             // Inscripción anual (asumimos $50k si no se especifica, pero aquí solo checkeamos existencia para el estado)

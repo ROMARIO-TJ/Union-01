@@ -68,7 +68,6 @@ const currentYear = new Date().getFullYear();
             <div class="container flex-col-center">
                 <p>&copy; {{ currentYear }} Unión Jaguera. Todos los derechos reservados.</p>
                 <div class="footer-legal">
-                    <router-link to="/politica-privacidad">Privacidad</router-link>
                     <router-link to="/admin" class="admin-access-link">Admin</router-link>
                 </div>
             </div>

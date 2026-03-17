@@ -32,14 +32,27 @@ const paymentForm = ref({
     fecha: new Date().toISOString().split('T')[0]
 });
 
-// Automatizar valores por defecto
-watch(() => paymentForm.value.tipo, (newTipo) => {
-    if (newTipo === 'Mensualidad') {
-        paymentForm.value.valor = 50000;
-    } else if (newTipo === 'Suscripción Club') {
-        paymentForm.value.valor = 20000;
+// Automatizar valores por defecto con lógica de patrocinio
+watch(() => [paymentForm.value.tipo, selectedPlayer.value], ([newTipo, player]) => {
+    if (!player) return;
+
+    let base = 50000;
+    if (newTipo === 'Suscripción Club' || isCompetitive(player.category)) {
+        base = 20000;
     }
-});
+
+    // Aplicar lógica de patrocinio al sugerir valor
+    if (player.sponsorship === 'full') {
+        paymentForm.value.valor = 0;
+    } else if (player.custom_fee) {
+        paymentForm.value.valor = parseFloat(player.custom_fee);
+    } else if (player.sponsorship === 'partial') {
+        // Lógica de hermanos: $35.000 fijos por cada uno
+        paymentForm.value.valor = 35000;
+    } else {
+        paymentForm.value.valor = base;
+    }
+}, { deep: true });
 
 onMounted(async () => {
     isLoading.value = true;
@@ -77,13 +90,22 @@ const payments = computed(() => {
         })
         .map(p => {
             const isComp = isCompetitive(p.category);
-            const fee = isComp ? 20000 : 50000;
+            let base = isComp ? 20000 : 50000;
+            
+            // Lógica unificada de cobro
+            let realFee = base;
+            if (p.sponsorship === 'full') realFee = 0;
+            else if (p.custom_fee) realFee = parseFloat(p.custom_fee);
+            else if (p.sponsorship === 'partial') realFee = 35000; // Valor fijo hermanos
+
             return {
                 id: p.id,
                 player: p.name || p.fullName,
                 category: p.category || 'Sin asignar',
-                amountValue: fee,
-                amount: `$${fee.toLocaleString()}`,
+                amountValue: realFee,
+                amount: `$${realFee.toLocaleString()}`,
+                sponsorship: p.sponsorship,
+                customFee: p.custom_fee,
                 date: p.registrationDate || 'N/A',
                 status: p.paymentStatus || 'Pendiente'
             };
@@ -462,7 +484,14 @@ const exportReceipt = (payment) => {
                             <td><span class="badge" style="background:#eee; color:#666;">{{ payment.category
                             }}</span>
                             </td>
-                            <td>{{ payment.amount }}</td>
+                            <td>
+                                <div style="display: flex; flex-direction: column;">
+                                    <strong>{{ payment.amount }}</strong>
+                                    <small v-if="payment.sponsorship === 'full'" style="color: #1fa774; font-size: 0.7rem; font-weight: bold;">Beca 100%</small>
+                                    <small v-else-if="payment.sponsorship === 'partial'" style="color: #e67e22; font-size: 0.7rem; font-weight: bold;">Desc. Hermanos</small>
+                                    <small v-else-if="payment.customFee" style="color: #3498db; font-size: 0.7rem; font-weight: bold;">Personalizado</small>
+                                </div>
+                            </td>
                             <td>
                                 <div :style="{
                                         padding: '6px 12px',
@@ -497,7 +526,8 @@ const exportReceipt = (payment) => {
                                         selectedPlayer = payment; 
                                         const isComp = isCompetitive(payment.category);
                                         paymentForm.tipo = isComp ? 'Suscripción Club' : 'Mensualidad';
-                                        paymentForm.valor = isComp ? 20000 : 50000;
+                                        
+                                        // El watch ya se encarga de poner el valor exacto según patrocinio
                                         showRegisterModal = true; 
                                     }" class="btn-action edit" title="Registrar Nuevo Pago" style="background: var(--admin-accent); color: white;">
                                         <i class="fa-solid fa-plus"></i>

@@ -45,14 +45,22 @@ const myChildren = computed(() => {
         .filter(p => (p.parentEmail || '').toLowerCase() === email)
         .map(p => {
             const isComp = isCompetitive(p.category);
-            const fee = isComp ? 20000 : 50000;
+            let base = isComp ? 20000 : 50000;
+            
+            // Calc real fee
+            let realFee = base;
+            if (p.sponsorship === 'full') realFee = 0;
+            else if (p.custom_fee) realFee = parseFloat(p.custom_fee);
+            else if (p.sponsorship === 'partial') realFee = 35000; 
+
             return {
                 id: p.id,
                 name: p.name || p.fullName,
                 category: p.category || 'Sin asignar',
                 status: p.paymentStatus || 'Pendiente',
-                amountValue: fee,
-                amount: `$${fee.toLocaleString()}`,
+                sponsorship: p.sponsorship,
+                amountValue: realFee,
+                amount: `$${realFee.toLocaleString()}`,
                 date: p.registrationDate || 'N/A'
             };
         });
@@ -175,7 +183,17 @@ const exportReceipt = (payment) => {
                             <td><strong>{{ child.name }}</strong></td>
                             <td><span class="badge" style="background:#eee; color:#666;">{{ child.category }}</span>
                             </td>
-                            <td>{{ child.amount }}</td>
+                            <td>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <strong>{{ child.amount }}</strong>
+                                    <span v-if="child.sponsorship === 'full'" style="font-size: 0.7rem; color: #27ae60; font-weight: bold;">
+                                        <i class="fa-solid fa-award"></i> Beca Club 100%
+                                    </span>
+                                    <span v-else-if="child.sponsorship === 'partial'" style="font-size: 0.7rem; color: #e67e22; font-weight: bold;">
+                                        <i class="fa-solid fa-people-group"></i> Descuento Hermanos
+                                    </span>
+                                </div>
+                            </td>
                             <td>
                                 <span :style="{
                                     padding: '6px 12px',

@@ -114,6 +114,37 @@ const getTeamLogo = (teamName) => {
     <!-- HERO SECTION -->
     <HomeHero />
 
+    <!-- LATEST NEWS SECTION (AHORA SEGUNDA) -->
+    <section v-if="globalSettings.modules.news.enabled && homeSettings.sections.latestNews.enabled"
+      class="latest-news py-24 bg-secondary">
+      <div class="container">
+        <div class="section-header flex justify-between items-end mb-12">
+          <div>
+            <span class="text-primary font-bold tracking-widest uppercase text-xs">Actualidad</span>
+            <h2 class="section-title mt-2">Últimas <span class="text-primary italic">Noticias</span></h2>
+          </div>
+          <router-link to="/noticias" class="view-all-link">Todas las noticias <span
+              class="material-symbols-outlined">east</span></router-link>
+        </div>
+
+        <div class="news-grid">
+          <article v-for="article in latestNews" :key="article.id" class="news-card-modern group">
+            <div class="news-img">
+              <img :src="article.image" :alt="article.title">
+              <span class="news-cat-tag">Actualidad</span>
+            </div>
+            <div class="news-body">
+              <span class="news-date-txt">{{ article.date }}</span>
+              <h3 class="news-title-txt group-hover:text-primary transition-colors">{{ article.title }}</h3>
+              <p class="news-excerpt-txt">{{ article.excerpt }}</p>
+              <router-link :to="`/noticias/${article.id}`" class="news-link">Leer más <span
+                  class="material-symbols-outlined">arrow_right_alt</span></router-link>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <!-- MATCH CENTER SECTION -->
     <section v-if="globalSettings.modules.matches.enabled && homeSettings.sections.matchCenter.enabled"
       class="match-center-section py-24">
@@ -175,7 +206,7 @@ const getTeamLogo = (teamName) => {
       </div>
     </section>
 
-    <!-- CATEGORÍAS SHOWCASE (ESTILO ANTERIOR MEJORADO) -->
+    <!-- CATEGORÍAS SHOWCASE -->
     <section v-if="globalSettings.modules.categories.enabled && homeSettings.sections.categories.enabled"
       class="categories-showcase-section py-24 bg-secondary">
       <div class="container">
@@ -248,37 +279,6 @@ const getTeamLogo = (teamName) => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- LATEST NEWS SECTION -->
-    <section v-if="globalSettings.modules.news.enabled && homeSettings.sections.latestNews.enabled"
-      class="latest-news py-24 bg-secondary">
-      <div class="container">
-        <div class="section-header flex justify-between items-end mb-12">
-          <div>
-            <span class="text-primary font-bold tracking-widest uppercase text-xs">Actualidad</span>
-            <h2 class="section-title mt-2">Últimas <span class="text-primary italic">Noticias</span></h2>
-          </div>
-          <router-link to="/noticias" class="view-all-link">Todas las noticias <span
-              class="material-symbols-outlined">east</span></router-link>
-        </div>
-
-        <div class="news-grid">
-          <article v-for="article in latestNews" :key="article.id" class="news-card-modern group">
-            <div class="news-img">
-              <img :src="article.image" :alt="article.title">
-              <span class="news-cat-tag">Club</span>
-            </div>
-            <div class="news-body">
-              <span class="news-date-txt">{{ article.date }}</span>
-              <h3 class="news-title-txt group-hover:text-primary transition-colors">{{ article.title }}</h3>
-              <p class="news-excerpt-txt">{{ article.excerpt }}</p>
-              <router-link :to="`/noticias/${article.id}`" class="news-link">Leer más <span
-                  class="material-symbols-outlined">arrow_right_alt</span></router-link>
-            </div>
-          </article>
         </div>
       </div>
     </section>
@@ -831,15 +831,21 @@ button,
 }
 
 .news-img {
-  height: 180px;
+  height: 250px;
   position: relative;
   overflow: hidden;
+  background-color: #f1f5f9;
 }
 
 .news-img img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.news-card-modern:hover .news-img img {
+  transform: scale(1.08);
 }
 
 .news-cat-tag {

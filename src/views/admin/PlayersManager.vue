@@ -45,6 +45,7 @@
                             <th>Edad</th>
                             <th>Categoría</th>
                             <th>Fecha Registro</th>
+                            <th>Beca/Pago</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -61,6 +62,14 @@
                             <td>{{ player.age }} años</td>
                             <td><span class="cat-pill">{{ player.category }}</span></td>
                             <td>{{ player.registrationDate }}</td>
+                            <td>
+                                <div class="sponsorship-badges-table">
+                                    <span v-if="player.sponsorship === 'full'" class="table-badge b-full" title="Beca 100%">100%</span>
+                                    <span v-else-if="player.sponsorship === 'partial'" class="table-badge b-partial" title="Hermanos 50%">50%</span>
+                                    <span v-else-if="player.custom_fee" class="table-badge b-custom" title="Cuota Especial">$</span>
+                                    <span v-else class="table-badge b-none">Part.</span>
+                                </div>
+                            </td>
                             <td>
                                 <span :class="['status-badge', player.status.toLowerCase()]">
                                     {{ player.status }}
@@ -266,27 +275,27 @@
                                 
                                 <div v-if="!isEditingSponsorship" class="sponsorship-display">
                                     <span v-if="selectedPlayer.sponsorship === 'full'" class="sponsorship-badge full">
-                                        Patrocinio Total (Beca 100%)
+                                        <i class="fa-solid fa-award"></i> Patrocinio Total (Beca 100%)
                                     </span>
                                     <span v-else-if="selectedPlayer.sponsorship === 'partial'" class="sponsorship-badge partial">
-                                        Apoyo Club (Beca 50%)
+                                        <i class="fa-solid fa-people-group"></i> Descuento Hermanos (Cuota: $35,000)
                                     </span>
                                     <span v-else-if="selectedPlayer.custom_fee" class="sponsorship-badge custom">
-                                        Cuota Especial: ${{ Number(selectedPlayer.custom_fee).toLocaleString() }}
+                                        <i class="fa-solid fa-tag"></i> Cuota Especial: ${{ Number(selectedPlayer.custom_fee).toLocaleString() }}
                                     </span>
-                                    <span v-else class="value">Sin patrocinio (Particular)</span>
+                                    <span v-else class="value">Sin patrocinio (Particular - 100%)</span>
                                 </div>
 
                                 <div v-else class="sponsorship-edit-form">
                                     <div class="form-row">
-                                        <select v-model="tempSponsorship" class="admin-input-mini">
-                                            <option value="none">Sin Patrocinio</option>
-                                            <option value="partial">Apoyo Club (50%)</option>
-                                            <option value="full">Patrocinio Total (100%)</option>
+                                        <select v-model="tempSponsorship" class="admin-input-premium">
+                                            <option value="none">Particular (Sin Descuento)</option>
+                                            <option value="partial">Hermanos / Apoyo Club ($35,000)</option>
+                                            <option value="full">Patrocinio Total (Becado 100%)</option>
                                         </select>
                                         <div class="custom-fee-input" v-if="tempSponsorship !== 'full'">
-                                            <label>Cuota Personalizada ($):</label>
-                                            <input v-model="tempCustomFee" type="number" class="admin-input-mini" placeholder="Ej: 30000">
+                                            <label>O Cuota Específica ($):</label>
+                                            <input v-model="tempCustomFee" type="number" class="admin-input-premium" placeholder="Ej: 30000">
                                         </div>
                                     </div>
                                     <div class="mini-actions" style="margin-top: 10px; justify-content: flex-end;">
@@ -1059,10 +1068,62 @@ const deletePlayer = async (id) => {
     align-items: flex-end;
 }
 
+.admin-input-premium {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    width: 100%;
+    background: #fff;
+    color: #1f2937;
+    transition: all 0.2s;
+}
+
+.admin-input-premium:focus {
+    border-color: var(--admin-accent);
+    box-shadow: 0 0 0 3px rgba(31, 167, 116, 0.1);
+    outline: none;
+}
+
 .custom-fee-input label {
     font-size: 0.75rem;
     display: block;
     margin-bottom: 2px;
     color: #666;
+}
+
+/* TABLE BADGES */
+.sponsorship-badges-table {
+    display: flex;
+    justify-content: center;
+}
+
+.table-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.table-badge.b-full {
+    background: #1fa774;
+    color: #fff;
+}
+
+.table-badge.b-partial {
+    background: #e67e22;
+    color: #fff;
+}
+
+.table-badge.b-custom {
+    background: #3498db;
+    color: #fff;
+}
+
+.table-badge.b-none {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
 }
 </style>
